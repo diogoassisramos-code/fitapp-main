@@ -1,0 +1,426 @@
+/* ============================================================
+   Ficha do aluno — /alunos/[id]
+   ============================================================ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ---------------- Header (hero) ---------------- */
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.heroMain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.heroText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.name {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.dot {
+  color: var(--color-text-tertiary);
+}
+
+.heroBadge {
+  margin-top: 2px;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+/* ---------------- Métricas ---------------- */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+/* ---------------- Bloco genérico ---------------- */
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.blockHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.blockTitle {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.blockSub {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Protocolo atual ---------------- */
+.protocols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.protocol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.protoIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--border-radius-md);
+  font-size: 21px;
+  margin-bottom: var(--space-2);
+}
+
+.protoIcon[data-tone="info"] {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+}
+.protoIcon[data-tone="success"] {
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+}
+.protoIcon[data-tone="warning"] {
+  background: var(--color-background-warning);
+  color: var(--color-text-warning);
+}
+
+.protoName {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.protoMeta {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.protoAction {
+  margin-top: var(--space-3);
+}
+
+/* ---------------- Último check-in ---------------- */
+.checkinCard {
+  overflow: hidden;
+}
+
+.checkinCard[data-pending] {
+  border-color: var(--color-text-info);
+  box-shadow: 0 0 0 1px var(--color-text-info), var(--shadow-card);
+}
+
+.checkinBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.checkinTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.checkinHeadText {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.checkinWeek {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.checkinDate {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.checkinStats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-3);
+}
+
+.checkinStat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+}
+
+.checkinStatLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.checkinStatVal {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.checkinQuote {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-background-info);
+  border-radius: var(--border-radius-md);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+.checkinQuote i {
+  font-size: 18px;
+  color: var(--color-text-info);
+  flex-shrink: 0;
+}
+
+.checkinAction {
+  display: flex;
+}
+
+/* ---------------- Histórico de check-ins ---------------- */
+.historyBody {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+/* ---------------- Pagamento + Conversa ---------------- */
+.bottomGrid {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.payBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.payRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.payRow + .payRow {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.payLabel {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.payValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: right;
+}
+
+/* ---------------- Conversa ---------------- */
+.chatCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.chatStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-success);
+}
+
+.chatStatus i {
+  font-size: 9px;
+}
+
+.chatBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.chatThread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bubbleRow {
+  display: flex;
+}
+
+.bubbleRow[data-de="coach"] {
+  justify-content: flex-end;
+}
+
+.bubbleRow[data-de="aluno"] {
+  justify-content: flex-start;
+}
+
+.bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 78%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--border-radius-lg);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.bubble[data-de="coach"] {
+  background: var(--color-text-info);
+  color: #fff;
+  border-bottom-right-radius: var(--border-radius-md);
+}
+
+.bubble[data-de="aluno"] {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  border-bottom-left-radius: var(--border-radius-md);
+}
+
+.bubbleText {
+  display: block;
+}
+
+.bubbleTime {
+  align-self: flex-end;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.chatInput {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 44px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 999px;
+}
+
+.chatInput > i {
+  font-size: 19px;
+  color: var(--color-text-tertiary);
+}
+
+.chatInputPlaceholder {
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.chatSend {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-text-info);
+  color: #fff;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.chatSend:hover {
+  background: color-mix(in srgb, var(--color-text-info) 88%, #000);
+}
+
+.chatSend i {
+  font-size: 17px;
+}
+
+/* ---------------- Responsivo ---------------- */
+@media (max-width: 880px) {
+  .metrics,
+  .protocols {
+    grid-template-columns: 1fr;
+  }
+
+  .checkinStats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .bottomGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroActions {
+    width: 100%;
+  }
+
+  .heroActions > * {
+    flex: 1;
+  }
+}

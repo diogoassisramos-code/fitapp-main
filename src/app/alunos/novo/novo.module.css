@@ -1,0 +1,220 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.headerExtras {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Banner do modelo experimental */
+.banner {
+  background: var(--color-background-info);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.bannerIcon {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--color-text-primary);
+  flex-shrink: 0;
+}
+
+.bannerText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+}
+
+.bannerText strong {
+  font-weight: 600;
+}
+
+/* Formulário */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.note {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.erro {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-danger);
+  font-size: 14px;
+  margin: 0;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  border-top: 1px solid var(--color-border-tertiary);
+  padding-top: var(--space-5);
+}
+
+.ctaRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Estado de sucesso */
+.sucessoCard {
+  border: 1px solid var(--color-text-success);
+  background: var(--color-background-success);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sucessoHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sucessoIcon {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-text-success);
+}
+
+.sucessoTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sucessoText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+}
+
+.linkRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.linkInput {
+  flex: 1;
+}
+
+.sucessoActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-border-tertiary);
+}
+
+/* Pendências no estado de sucesso */
+.pendencias {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: var(--space-4);
+}
+
+.pendenciasTitle {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.pendenciasSub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+}
+
+.pendenciasChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.pendenciaInline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+}
+
+/* Lista de alunos de teste */
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.list > * + * {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.rowAction {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.metaText {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 880px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ctaRow {
+    justify-content: stretch;
+  }
+
+  .linkRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

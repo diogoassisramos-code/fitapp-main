@@ -1,0 +1,622 @@
+/* ============================================================
+   Primitivos CoachFit — estilos compartilhados (escopo CSS Module)
+   ============================================================ */
+
+/* ---------------- Button ---------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-4);
+  border-radius: var(--border-radius-md);
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition),
+    color var(--transition), opacity var(--transition);
+}
+
+.btn i {
+  font-size: 18px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn[data-size="sm"] {
+  height: 32px;
+  padding: 0 var(--space-3);
+  font-size: 13px;
+}
+
+.btn[data-size="sm"] i {
+  font-size: 16px;
+}
+
+.btn[data-full="true"] {
+  width: 100%;
+}
+
+.btnPrimary {
+  background: var(--color-text-info);
+  color: #fff;
+}
+.btnPrimary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text-info) 88%, #000);
+}
+
+.btnOutline {
+  background: var(--color-background-primary);
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+.btnOutline:hover:not(:disabled) {
+  background: var(--color-background-secondary);
+}
+
+.btnGhost {
+  background: transparent;
+  color: var(--color-text-info);
+}
+.btnGhost:hover:not(:disabled) {
+  background: var(--color-background-info);
+}
+
+.btnDanger {
+  background: var(--color-background-primary);
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-danger);
+}
+.btnDanger:hover:not(:disabled) {
+  background: var(--color-background-danger);
+  border-color: transparent;
+}
+
+/* ---------------- Card / Panel ---------------- */
+.card {
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.cardPad {
+  padding: var(--space-5);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-tertiary);
+}
+
+.cardTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cardBody {
+  padding: var(--space-5);
+}
+
+/* ---------------- Metric card ---------------- */
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+}
+
+.metricTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.metricLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.metricIcon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-secondary);
+  font-size: 17px;
+}
+
+.metricValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.metricValue {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.metricDelta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+.metricDelta[data-dir="up"] {
+  color: var(--color-text-success);
+}
+.metricDelta[data-dir="down"] {
+  color: var(--color-text-danger);
+}
+.metricDelta[data-dir="flat"] {
+  color: var(--color-text-tertiary);
+}
+
+.metricSub {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.metricAction {
+  margin-top: var(--space-2);
+}
+
+/* ---------------- Status badge ---------------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge i {
+  font-size: 13px;
+}
+
+.badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge[data-nodot="true"]::before {
+  display: none;
+}
+
+.badgeOk {
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+}
+.badgeLate {
+  background: var(--color-background-danger);
+  color: var(--color-text-danger);
+}
+.badgePending {
+  background: var(--color-background-warning);
+  color: var(--color-text-warning);
+}
+.badgeNew {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+}
+.badgeOff {
+  background: var(--color-background-tertiary);
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Toggle (40×23) ---------------- */
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 40px;
+  height: 23px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.toggleTrack {
+  width: 40px;
+  height: 23px;
+  border-radius: 999px;
+  background: var(--color-background-tertiary);
+  transition: background var(--transition);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform var(--transition);
+}
+
+.toggle input:checked ~ .toggleTrack {
+  background: var(--color-text-info);
+}
+.toggle input:checked ~ .toggleThumb {
+  transform: translateX(17px);
+}
+.toggle input:focus-visible ~ .toggleTrack {
+  box-shadow: 0 0 0 3px var(--color-background-info);
+}
+.toggle input:disabled {
+  cursor: not-allowed;
+}
+.toggle:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------------- Segmented ---------------- */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--color-background-tertiary);
+  border-radius: var(--border-radius-md);
+}
+
+.segmentedItem {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.segmentedItem:hover {
+  color: var(--color-text-primary);
+}
+
+.segmentedItem[data-selected="true"] {
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------------- Chip ---------------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  border: 1px solid var(--color-border-tertiary);
+  background: var(--color-background-primary);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition), border-color var(--transition),
+    color var(--transition);
+}
+
+.chip i {
+  font-size: 15px;
+}
+
+.chip:hover {
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+
+.chip[data-selected="true"] {
+  background: var(--color-background-info);
+  border-color: transparent;
+  color: var(--color-text-info);
+}
+
+.chipCount {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-background-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.chip[data-selected="true"] .chipCount {
+  background: color-mix(in srgb, var(--color-text-info) 18%, transparent);
+  color: var(--color-text-info);
+}
+
+/* ---------------- Field (Input / Textarea) ---------------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.fieldHint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.inputWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-3);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.inputWrap:focus-within {
+  border-color: var(--color-text-info);
+  box-shadow: 0 0 0 3px var(--color-background-info);
+}
+
+.inputWrap i {
+  font-size: 17px;
+  color: var(--color-text-tertiary);
+}
+
+.inputWrap input,
+.inputWrap .prefix {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.inputWrap input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.prefix {
+  flex: 0 0 auto;
+  color: var(--color-text-tertiary);
+}
+
+.textarea {
+  padding: 10px var(--space-3);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  resize: vertical;
+  min-height: 84px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-text-info);
+  box-shadow: 0 0 0 3px var(--color-background-info);
+}
+
+.textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.counter {
+  align-self: flex-end;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+/* ---------------- List row (padrão de 2 linhas) ---------------- */
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: default;
+  transition: background var(--transition);
+}
+
+a.row,
+button.row,
+.row[data-clickable="true"] {
+  cursor: pointer;
+}
+
+a.row:hover,
+button.row:hover,
+.row[data-clickable="true"]:hover {
+  background: var(--color-background-secondary);
+}
+
+.row + .row {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.rowLeading {
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rowLine1 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.rowTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowAction {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Linha 2: largura cheia, metadados + tags */
+.rowLine2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px var(--space-2);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.rowMeta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.rowTags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------------- Section block (numerado) ---------------- */
+.section {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.sectionNum {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sectionBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-bottom: var(--space-2);
+}
+
+.sectionHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sectionDesc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Avatar (apoio para rows) ---------------- */
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--color-background-tertiary);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}

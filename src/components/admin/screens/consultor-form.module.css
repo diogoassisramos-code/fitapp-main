@@ -1,0 +1,38 @@
+.page {
+  padding-bottom: 96px;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4) var(--space-5);
+  align-items: end;
+}
+
+.statusRow {
+  display: flex;
+}
+
+.footer {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+@media (max-width: 880px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+
+  .footer {
+    flex-direction: column-reverse;
+  }
+}

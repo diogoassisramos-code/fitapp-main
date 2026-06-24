@@ -1,0 +1,257 @@
+/* KPIs */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+/* Grid de pricing cards */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+.plano {
+  position: relative;
+  height: 100%;
+}
+
+.destaque {
+  border: 1px solid var(--color-text-info);
+  box-shadow: var(--shadow-pop);
+}
+
+.arquivado {
+  opacity: 0.7;
+}
+
+.planoBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  height: 100%;
+}
+
+.planoTop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tituloLinha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.planoNome {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.popular {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-info);
+  background: var(--color-background-info);
+  padding: 2px var(--space-2);
+  border-radius: var(--border-radius-md);
+}
+
+.popular i {
+  font-size: 12px;
+}
+
+.precoLinha {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.preco {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-text-primary);
+}
+
+.precoUnidade {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.descricao {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.limite {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-background-secondary);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--border-radius-md);
+  width: fit-content;
+}
+
+.limite i {
+  color: var(--color-text-tertiary);
+}
+
+/* Clientes + receita gerada (destaque) */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+}
+
+.statLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.statLabel i {
+  font-size: 13px;
+}
+
+.statValue {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.statValue[data-receita] {
+  color: var(--color-text-success);
+}
+
+.statUnidade {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  margin-left: 2px;
+}
+
+/* Bloco de entregas */
+.entregas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.entregasTitulo {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+/* Lista de recursos */
+.recursos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.recursoVazio {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.recurso {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.recurso i {
+  color: var(--color-text-success);
+  font-size: 16px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+/* Rodapé */
+.rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.assinantes {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.assinantes i {
+  color: var(--color-text-tertiary);
+}
+
+/* Modal de criação */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* Responsivo */
+@media (max-width: 880px) {
+  .metrics,
+  .grid,
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+}

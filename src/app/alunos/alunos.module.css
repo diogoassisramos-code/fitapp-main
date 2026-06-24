@@ -1,0 +1,95 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.expBanner {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-full, var(--border-radius-lg));
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.expBanner i {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.expBannerWarn {
+  border-color: var(--color-border-warning, var(--color-border-secondary));
+  background: var(--color-bg-warning-subtle, var(--color-bg-secondary));
+  color: var(--color-text-warning, var(--color-text-secondary));
+}
+
+.expBannerWarn i {
+  color: var(--color-text-warning, var(--color-text-tertiary));
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.list > * + * {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.nome {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.meta {
+  color: var(--color-text-secondary);
+}
+
+.vencido {
+  color: var(--color-text-danger);
+  font-weight: 600;
+}
+
+.tagGroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.protocoloLink {
+  display: inline-flex;
+  text-decoration: none;
+  border-radius: var(--border-radius-md);
+  transition: opacity 0.15s ease;
+}
+
+.protocoloLink:hover {
+  opacity: 0.82;
+}
+
+@media (max-width: 880px) {
+  .page {
+    gap: var(--space-5);
+  }
+}

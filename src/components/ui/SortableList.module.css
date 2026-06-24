@@ -1,0 +1,40 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  border-radius: var(--border-radius-lg);
+  transition: opacity var(--transition), box-shadow var(--transition);
+}
+
+.row[data-dragging="true"] {
+  opacity: 0.45;
+}
+
+.row[data-over="true"] {
+  box-shadow: 0 -2px 0 0 var(--color-text-info);
+}
+
+/* Alça de arraste — aplicada pelo consumidor via renderItem */
+.handle {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-tertiary);
+  font-size: 18px;
+  cursor: grab;
+}
+
+.handle:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+}
+
+.handle:active {
+  cursor: grabbing;
+}

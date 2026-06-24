@@ -1,0 +1,366 @@
+/* ============================================================
+   Construtor de treino — /alunos/[id]/treino
+   ============================================================ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ---------------- Header ---------------- */
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.titleInput {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-md);
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+  min-width: 12ch;
+  max-width: 100%;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.titleInput:hover {
+  background: var(--color-background-secondary);
+}
+
+.titleInput:focus {
+  outline: none;
+  background: var(--color-background-primary);
+  border-color: var(--color-text-info);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ---------------- Biblioteca ---------------- */
+.libBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.libHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.libHeadText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.libHint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.libResults {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.libItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.libItemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.libItemName {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.libItemGroup {
+  color: var(--color-text-tertiary);
+}
+
+.libEmpty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-4);
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Lista de exercícios ---------------- */
+.listHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-2);
+}
+
+.exCard {
+  margin-bottom: 0;
+}
+
+.exBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.exTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  cursor: grab;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.handle:active {
+  cursor: grabbing;
+}
+
+.exNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.exInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.exName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.exGroup {
+  color: var(--color-text-tertiary);
+}
+
+.exFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Vídeo ---------------- */
+.exVideo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.videoEmpty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.videoEmptyLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+
+.videoEmptyLabel i {
+  font-size: 16px;
+}
+
+.videoOpts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ---------------- Observações por exercício ---------------- */
+.exObs {
+  gap: var(--space-1);
+}
+
+.exObs textarea {
+  min-height: 0;
+  font-size: 13px;
+}
+
+/* ---------------- Modal criar exercício ---------------- */
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.modalFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+/* ---------------- Footer ---------------- */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+
+/* ---------------- Responsivo ---------------- */
+@media (max-width: 880px) {
+  .libResults {
+    grid-template-columns: 1fr;
+  }
+
+  .exFields {
+    grid-template-columns: 1fr;
+  }
+
+  .modalFields {
+    grid-template-columns: 1fr;
+  }
+
+  .headerActions {
+    width: 100%;
+  }
+}
+
+/* ---------------- Séries detalhadas ---------------- */
+.seriesDetail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+}
+
+.seriesDetailHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.serieItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.serieRow {
+  display: grid;
+  grid-template-columns: 24px 1.4fr 0.9fr 0.9fr 34px;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.serieNum {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.serieDel {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 17px;
+  transition: color var(--transition), border-color var(--transition),
+    background var(--transition);
+}
+
+.serieDel:hover {
+  color: var(--color-text-danger);
+  border-color: transparent;
+  background: var(--color-background-danger);
+}

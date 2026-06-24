@@ -1,0 +1,221 @@
+/* ============================================================
+   Admin · Configurações da plataforma — nav vertical + conteúdo
+   ============================================================ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.nav {
+  position: sticky;
+  top: calc(var(--topbar-h) + var(--space-5));
+}
+
+.content {
+  min-width: 0;
+}
+
+/* ---------------- Form genérico ---------------- */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.fieldHint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.link {
+  color: var(--color-text-info);
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+/* ---------------- Save bar ---------------- */
+.saveBar {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+/* ---------------- Nota discreta ---------------- */
+.nota {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-background-info);
+  border-radius: var(--border-radius-md);
+  font-size: 13px;
+  color: var(--color-text-info);
+  line-height: 1.4;
+}
+
+.nota i {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ---------------- Upload field ---------------- */
+.uploadField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.uploadRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.uploadPreview {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-lg);
+  border: 1px dashed var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  color: var(--color-text-tertiary);
+  font-size: 26px;
+  overflow: hidden;
+}
+
+.uploadActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.uploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+  height: 34px;
+  padding: 0 var(--space-3);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.uploadBtn:hover {
+  background: var(--color-background-secondary);
+}
+
+.uploadBtn i {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Lista de toggles ---------------- */
+.toggleList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.toggleRow + .toggleRow {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.toggleIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  font-size: 18px;
+}
+
+.toggleText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggleLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.toggleDesc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Lista de admins ---------------- */
+.adminList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+}
+
+.adminList > * + * {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+/* ---------------- Responsivo ---------------- */
+@media (max-width: 880px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+
+  .nav {
+    position: static;
+    top: auto;
+  }
+}

@@ -1,0 +1,285 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ---------------- Metric cards ---------------- */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+@media (max-width: 880px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------- Fotos da semana ---------------- */
+.fotos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+@media (max-width: 880px) {
+  .fotos {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .compararPar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.foto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.foto:hover .fotoThumb {
+  border-color: var(--color-border-secondary);
+}
+
+.foto:hover .fotoThumb img {
+  transform: scale(1.03);
+}
+
+.fotoThumb {
+  display: block;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--color-background-tertiary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+}
+
+.fotoThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.fotoLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Lightbox ---------------- */
+.lightbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.lightboxImg {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  background: var(--color-background-tertiary);
+  border-radius: var(--border-radius-lg);
+}
+
+.lightboxMeta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+
+/* ---------------- Comparação semana 1 ---------------- */
+.comparar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.compararLinha {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.compararAngulo {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.compararPar {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+
+.compararItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.compararLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+
+.compararItem img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: var(--color-background-tertiary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  display: block;
+}
+
+.compararVazio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3 / 4;
+  background: var(--color-background-tertiary);
+  border: 1px dashed var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* ---------------- Feedback do aluno ---------------- */
+.feedback {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 880px) {
+  .feedback {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pill {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-lg);
+}
+
+.pillTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.pillTop i {
+  font-size: 18px;
+  color: var(--color-text-info);
+}
+
+.pillNota {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.pillNotaValor {
+  font-size: 24px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.pillNotaMax {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.dots {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.dotOn,
+.dotOff {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  flex: 1;
+}
+
+.dotOn {
+  background: var(--color-text-info);
+}
+
+.dotOff {
+  background: var(--color-background-tertiary);
+}
+
+/* ---------------- Citação do comentário ---------------- */
+.quote {
+  position: relative;
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-background-info);
+  border-left: 3px solid var(--color-text-info);
+  border-radius: var(--border-radius-md);
+  display: flex;
+  gap: var(--space-3);
+}
+
+.quote i {
+  font-size: 22px;
+  color: var(--color-text-info);
+  flex-shrink: 0;
+}
+
+.quote p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  font-style: italic;
+}
+
+/* ---------------- Ações da resposta ---------------- */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 880px) {
+  .actions {
+    flex-direction: column;
+  }
+  .actions :global(.btn) {
+    width: 100%;
+  }
+}

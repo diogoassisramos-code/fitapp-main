@@ -1,0 +1,206 @@
+/* ============================================================
+   Sidebar do consultor — trilho de ícones que EXPANDE no hover.
+   Cores claras (tema do app do consultor) preservadas.
+   ============================================================ */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-w-collapsed); /* trilho 72px */
+  background: var(--color-background-primary);
+  border-right: 1px solid var(--color-border-tertiary);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  overflow: hidden; /* clipa os rótulos no trilho */
+  transition: width var(--transition), box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.sidebar:hover {
+  width: var(--sidebar-w); /* 248px ao passar o mouse */
+  box-shadow: var(--shadow-pop);
+}
+
+/* Rótulos: escondidos no trilho, revelam no hover */
+.label {
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity var(--transition);
+}
+
+.sidebar:hover .label {
+  opacity: 1;
+}
+
+/* ---------- Cabeçalho / logo ---------- */
+.head {
+  display: flex;
+  align-items: center;
+  height: var(--topbar-h);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--color-border-tertiary);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.logoMark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-md);
+  background: var(--color-text-info);
+  color: #fff;
+  font-size: 18px;
+}
+
+.logo .label {
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Navegação ---------- */
+.nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-4) var(--space-3);
+  overflow: hidden;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 40px;
+  padding: 0 10px;
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+
+.navItem i {
+  font-size: 20px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.navItem:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.navItem[data-active="true"] {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+}
+
+/* ---------- Card do usuário ---------- */
+.userRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 10px;
+}
+
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  padding: 6px;
+  border-radius: var(--border-radius-lg);
+  transition: background var(--transition);
+}
+
+.userCard:hover {
+  background: var(--color-background-secondary);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-background-tertiary);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.userMeta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.userName {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userConselho {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logout {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border-tertiary);
+  color: var(--color-text-tertiary);
+  font-size: 19px;
+  transition: background var(--transition), color var(--transition);
+}
+
+.logout:hover {
+  background: var(--color-background-danger);
+  color: var(--color-text-danger);
+  border-color: transparent;
+}
+
+/* ---------- Mobile (drawer) ---------- */
+@media (max-width: 880px) {
+  .sidebar {
+    width: var(--sidebar-w); /* largura cheia no mobile */
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-pop);
+  }
+
+  .sidebar[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  /* No mobile o menu não usa hover: rótulos sempre visíveis */
+  .label {
+    opacity: 1;
+  }
+}

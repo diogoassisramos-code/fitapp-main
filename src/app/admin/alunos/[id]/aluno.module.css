@@ -1,0 +1,168 @@
+.headTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.headName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.headSub {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+/* Definition lists */
+.dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.dlRow:first-child {
+  border-top: none;
+}
+
+.dlRow dt {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.dlRow dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  text-align: right;
+}
+
+.muted {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+/* Blocos treino/dieta/protocolo/checkins */
+.bloco {
+  margin-bottom: var(--space-4);
+}
+
+.blocoSub {
+  margin: 0 0 var(--space-3);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.item:first-child {
+  border-top: none;
+}
+
+.itemNome {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.hora {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-left: 4px;
+}
+
+.itemMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+.protoBloco {
+  margin-bottom: var(--space-4);
+}
+
+.protoBloco:last-child {
+  margin-bottom: 0;
+}
+
+.protoBlocoNome {
+  display: inline-block;
+  margin-bottom: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.notFound {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}
+
+.notFound i {
+  font-size: 36px;
+  color: var(--color-text-tertiary);
+}
+
+@media (max-width: 880px) {
+  .metrics,
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}

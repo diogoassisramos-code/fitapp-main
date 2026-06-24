@@ -1,0 +1,56 @@
+/* ============================================================
+   Painel admin — Visão geral (rota /admin)
+   ============================================================ */
+
+/* ---- KPIs ---- */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+/* ---- Gráficos (2 col) ---- */
+.charts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+/* ---- Lista de top consultorias ---- */
+.lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.rowAction {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mrr {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Responsivo
+   ============================================================ */
+@media (max-width: 880px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .charts {
+    grid-template-columns: 1fr;
+  }
+
+  .rowAction {
+    gap: var(--space-2);
+  }
+}

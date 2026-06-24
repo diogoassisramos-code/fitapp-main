@@ -1,0 +1,189 @@
+/* ============================================================
+   Ficha do aluno de TESTE — /alunos/[id] (fallback localStorage)
+   ============================================================ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Placeholder neutro antes da hidratação */
+.placeholder {
+  min-height: 320px;
+}
+
+.notFound {
+  max-width: 560px;
+}
+
+/* ---------------- Header ---------------- */
+.hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.heroText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.name {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.heroBadges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ---------------- Dados básicos ---------------- */
+.dadosBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dadosGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.dado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.dado[data-full] {
+  grid-column: 1 / -1;
+}
+
+.dadoVal {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+
+/* ---------------- Convite ---------------- */
+.conviteBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.conviteText {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.linkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.linkInput {
+  flex: 1;
+  min-width: 240px;
+}
+
+.pendentes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ---------------- Bloco genérico ---------------- */
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.blockHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.blockTitle {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.blockSub {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Protocolo atual ---------------- */
+.protocols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.protocol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.protoIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--border-radius-md);
+  font-size: 21px;
+  margin-bottom: var(--space-2);
+}
+
+.protoIcon[data-tone="info"] {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+}
+.protoIcon[data-tone="success"] {
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+}
+.protoIcon[data-tone="warning"] {
+  background: var(--color-background-warning);
+  color: var(--color-text-warning);
+}
+
+.protoMeta {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.protoAction {
+  margin-top: var(--space-3);
+}
+
+/* ---------------- Responsivo ---------------- */
+@media (max-width: 880px) {
+  .dadosGrid,
+  .protocols {
+    grid-template-columns: 1fr;
+  }
+}

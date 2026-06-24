@@ -1,0 +1,170 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ---------- Métricas ---------- */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+/* ---------- Inadimplência ---------- */
+.inadimplencia {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-danger);
+  border: 1px solid var(--color-border-tertiary);
+}
+
+.inadimplenciaText {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.inadimplenciaIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-danger);
+  font-size: 20px;
+}
+
+.inadimplenciaValor {
+  display: block;
+  color: var(--color-text-danger);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.inadimplenciaSub {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+/* ---------- Split (recebimentos + extrato) ---------- */
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* ---------- Listas ---------- */
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.list > * + * {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.nome {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.meta {
+  color: var(--color-text-secondary);
+}
+
+.metaRow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.valorEntrada {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-text-success);
+  white-space: nowrap;
+}
+
+.valorSaida {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-text-danger);
+  white-space: nowrap;
+}
+
+/* ---------- Modal Sacar ---------- */
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.contaSaque {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.contaLinha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.contaIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+  font-size: 18px;
+}
+
+.contaTexto {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.contaNota {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 880px) {
+  .page {
+    gap: var(--space-5);
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .split {
+    grid-template-columns: 1fr;
+  }
+
+  .inadimplencia {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

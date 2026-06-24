@@ -1,0 +1,92 @@
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+/* ---------- Vertical (desktop) ---------- */
+.tabs[data-orientation="vertical"] {
+  flex-direction: column;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px var(--space-3);
+  border: none;
+  background: transparent;
+  border-radius: var(--border-radius-md);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.tab i {
+  font-size: 19px;
+}
+
+.tab:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.tab[data-active="true"] {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+}
+
+/* ---------- Horizontal (sublinhado) ---------- */
+.tabs[data-orientation="horizontal"] {
+  flex-direction: row;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border-tertiary);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs[data-orientation="horizontal"]::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs[data-orientation="horizontal"] .tab {
+  border-radius: 0;
+  padding: 10px var(--space-3);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tabs[data-orientation="horizontal"] .tab:hover {
+  background: transparent;
+}
+
+.tabs[data-orientation="horizontal"] .tab[data-active="true"] {
+  background: transparent;
+  color: var(--color-text-info);
+  border-bottom-color: var(--color-text-info);
+}
+
+/* No mobile, vertical vira horizontal scrollável */
+@media (max-width: 880px) {
+  .tabs[data-orientation="vertical"] {
+    flex-direction: row;
+    gap: var(--space-1);
+    border-bottom: 1px solid var(--color-border-tertiary);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs[data-orientation="vertical"]::-webkit-scrollbar {
+    display: none;
+  }
+  .tabs[data-orientation="vertical"] .tab {
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tabs[data-orientation="vertical"] .tab[data-active="true"] {
+    background: transparent;
+    border-bottom-color: var(--color-text-info);
+  }
+}

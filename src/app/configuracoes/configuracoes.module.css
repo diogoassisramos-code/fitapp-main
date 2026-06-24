@@ -1,0 +1,417 @@
+/* ============================================================
+   Configurações — layout de 2 colunas (nav vertical + conteúdo)
+   ============================================================ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.nav {
+  position: sticky;
+  top: calc(var(--topbar-h) + var(--space-5));
+}
+
+.content {
+  min-width: 0;
+}
+
+/* ---------------- Form genérico ---------------- */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.fieldHint {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.inlineRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+/* ---------------- Nota discreta ---------------- */
+.nota {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-background-info);
+  border-radius: var(--border-radius-md);
+  font-size: 13px;
+  color: var(--color-text-info);
+  line-height: 1.4;
+}
+
+.nota i {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ---------------- Save bar ---------------- */
+.saveBar {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+/* ---------------- Upload field ---------------- */
+.uploadField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.uploadRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.uploadPreview {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-lg);
+  border: 1px dashed var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  color: var(--color-text-tertiary);
+  font-size: 26px;
+  overflow: hidden;
+}
+
+.uploadActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.uploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+  height: 34px;
+  padding: 0 var(--space-3);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.uploadBtn:hover {
+  background: var(--color-background-secondary);
+}
+
+.uploadBtn i {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Checkout ---------------- */
+.checkoutRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+.colorField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.colorPicker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 38px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+}
+
+.colorInput {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  cursor: pointer;
+}
+
+.colorInput::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.colorInput::-webkit-color-swatch {
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: 6px;
+}
+
+.colorValue {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.previewBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-secondary);
+}
+
+.previewLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.checkoutPreviewBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 44px;
+  border: none;
+  border-radius: var(--border-radius-md);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.checkoutPreviewBtn i {
+  font-size: 18px;
+}
+
+/* ---------------- Anamnese — pergunta ---------------- */
+.perguntaCard {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-primary);
+}
+
+.handle {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  cursor: grab;
+  font-size: 20px;
+}
+
+.handle:active {
+  cursor: grabbing;
+}
+
+.perguntaBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.perguntaTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.perguntaNum {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.removeBtn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-tertiary);
+  font-size: 17px;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition),
+    border-color var(--transition);
+}
+
+.removeBtn:hover {
+  background: var(--color-background-danger);
+  border-color: transparent;
+  color: var(--color-text-danger);
+}
+
+.perguntaBottom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-left: calc(24px + var(--space-3));
+}
+
+.obrigatoria {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+/* ---------------- Notificações ---------------- */
+.notifList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+}
+
+.notifRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.notifRow + .notifRow {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.notifIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  font-size: 18px;
+}
+
+.notifText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notifLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.notifDesc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* ---------------- Responsivo ---------------- */
+@media (max-width: 880px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+
+  .nav {
+    position: static;
+    top: auto;
+  }
+
+  .grid3 {
+    grid-template-columns: 1fr;
+  }
+
+  .checkoutRow {
+    grid-template-columns: 1fr;
+  }
+
+  .inlineRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .perguntaBottom {
+    padding-left: 0;
+  }
+}

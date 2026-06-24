@@ -1,0 +1,80 @@
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.foot {
+  margin-top: var(--space-6);
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.footLink {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--color-text-info);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.footLink:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Estado enviado ---------- */
+.confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+}
+
+.confirmIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--border-radius-xl);
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+  font-size: 28px;
+}
+
+.confirm .title {
+  margin: 0;
+}
+
+.confirm .subtitle {
+  margin: 0;
+}
+
+.confirm .foot {
+  margin: 0;
+}

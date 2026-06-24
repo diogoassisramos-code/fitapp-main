@@ -1,0 +1,242 @@
+/* ============================================================
+   Sidebar do admin — trilho de ícones que EXPANDE no hover.
+   Cores ESCURAS (tema da plataforma) preservadas.
+   ============================================================ */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-w-collapsed); /* trilho 72px */
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Fundo escuro (token de texto primário) — diferencia do app do consultor */
+  background: var(--color-text-primary);
+  color: #fff;
+  transition: width var(--transition), box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.sidebar:hover {
+  width: var(--sidebar-w); /* 248px no hover */
+  box-shadow: var(--shadow-pop);
+}
+
+/* Rótulos: escondidos no trilho, revelam no hover */
+.label {
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity var(--transition);
+}
+
+.sidebar:hover .label {
+  opacity: 1;
+}
+
+/* ---------- Cabeçalho ---------- */
+.head {
+  display: flex;
+  align-items: center;
+  height: var(--topbar-h);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.logoMark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-md);
+  background: var(--mint);
+  color: var(--petrol-deep);
+  font-size: 18px;
+}
+
+.logoText {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.logoTag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ---------- Navegação ---------- */
+.nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-4) var(--space-3);
+  overflow: hidden;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 40px;
+  padding: 0 10px;
+  border-radius: var(--border-radius-md);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+
+.navItem i {
+  font-size: 20px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.navItem:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.navItem[data-active="true"] {
+  background: var(--mint);
+  color: var(--petrol-deep);
+}
+
+/* ---------- Rodapé ---------- */
+.foot {
+  padding: var(--space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--border-radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+
+.switch i {
+  font-size: 20px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.switch:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px;
+  border-radius: var(--border-radius-lg);
+}
+
+.userCard:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.userMeta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.userName {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userEmail {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logout {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius-md);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 18px;
+  transition: background var(--transition), color var(--transition);
+}
+
+.logout:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* ---------- Mobile (drawer) ---------- */
+@media (max-width: 880px) {
+  .sidebar {
+    width: var(--sidebar-w);
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-pop);
+  }
+
+  .sidebar[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  .label {
+    opacity: 1;
+  }
+}
