@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import {
   Button,
@@ -25,11 +26,15 @@ import {
   LIMITE_ALUNOS_TESTE,
   type TestAluno,
 } from "@/lib/testAlunos";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { createAluno } from "@/lib/db";
 import styles from "./novo.module.css";
 
 export default function NovoAlunoPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [lista, setLista] = useState<TestAluno[]>([]);
+  const [salvando, setSalvando] = useState(false);
 
   const [nome, setNome] = useState("");
   const [idade, setIdade] = useState("");
@@ -45,7 +50,7 @@ export default function NovoAlunoPage() {
 
   useEffect(() => {
     setMounted(true);
-    setLista(getTestAlunos());
+    if (!supabaseEnabled) setLista(getTestAlunos());
   }, []);
 
   const noLimite = mounted && lista.length >= LIMITE_ALUNOS_TESTE;
@@ -60,8 +65,21 @@ export default function NovoAlunoPage() {
     setObservacoes("");
   }
 
-  function handleCadastrar() {
+  async function handleCadastrar() {
     setErro("");
+    // Com Supabase: grava o aluno no banco e volta pra lista.
+    if (supabaseEnabled) {
+      if (!nome.trim()) return;
+      setSalvando(true);
+      try {
+        await createAluno({ nome: nome.trim(), email, objetivo });
+        router.push("/alunos");
+      } catch {
+        setErro("Não foi possível cadastrar o aluno. Tente novamente.");
+        setSalvando(false);
+      }
+      return;
+    }
     const result = addTestAluno({
       nome,
       idade,
@@ -104,7 +122,7 @@ export default function NovoAlunoPage() {
         subtitle="Cadastre as informações básicas e convide o aluno a completar o perfil."
         actions={
           <div className={styles.headerExtras}>
-            {mounted && (
+            {mounted && !supabaseEnabled && (
               <StatusBadge
                 variant={noLimite ? "pending" : "off"}
                 icon="users"
@@ -120,14 +138,16 @@ export default function NovoAlunoPage() {
         }
       />
 
-      {/* Banner do modelo experimental */}
-      <div className={styles.banner}>
-        <i className={`ti ti-flask ${styles.bannerIcon}`} aria-hidden />
-        <p className={styles.bannerText}>
-          <strong>Modelo experimental:</strong> você pode cadastrar até{" "}
-          {LIMITE_ALUNOS_TESTE} alunos de teste para experimentar a plataforma.
-        </p>
-      </div>
+      {/* Banner do modelo experimental (só no modo protótipo) */}
+      {!supabaseEnabled && (
+        <div className={styles.banner}>
+          <i className={`ti ti-flask ${styles.bannerIcon}`} aria-hidden />
+          <p className={styles.bannerText}>
+            <strong>Modelo experimental:</strong> você pode cadastrar até{" "}
+            {LIMITE_ALUNOS_TESTE} alunos de teste para experimentar a plataforma.
+          </p>
+        </div>
+      )}
 
       {/* Estado de sucesso */}
       {criado && (
@@ -323,10 +343,14 @@ export default function NovoAlunoPage() {
                 <Button
                   variant="primary"
                   icon="user-plus"
-                  disabled={!nome.trim()}
+                  disabled={!nome.trim() || salvando}
                   onClick={handleCadastrar}
                 >
-                  Cadastrar e convidar aluno
+                  {supabaseEnabled
+                    ? salvando
+                      ? "Cadastrando…"
+                      : "Cadastrar aluno"
+                    : "Cadastrar e convidar aluno"}
                 </Button>
               </div>
             </div>
@@ -334,7 +358,8 @@ export default function NovoAlunoPage() {
         </Card>
       )}
 
-      {/* Lista de alunos de teste */}
+      {/* Lista de alunos de teste (só no modo protótipo) */}
+      {!supabaseEnabled && (
       <Card padded={false}>
         <CardHeader
           title="Alunos de teste"
@@ -423,6 +448,7 @@ export default function NovoAlunoPage() {
           </div>
         )}
       </Card>
+      )}
     </div>
   );
 }

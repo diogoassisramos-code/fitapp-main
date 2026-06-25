@@ -16,6 +16,8 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { listAlunos, planoNome } from "@/lib/data";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { fetchAlunos } from "@/lib/db";
 import {
   STATUS_PAGAMENTO,
   dataCurta,
@@ -29,16 +31,24 @@ type FiltroId = "todos" | "atrasados" | "checkin" | "protocolo" | "novos";
 
 export default function AlunosPage() {
   const router = useRouter();
-  const todos = listAlunos();
 
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<FiltroId>("todos");
+
+  // Sem Supabase: mock. Com Supabase: alunos da consultoria (RLS).
+  const [todos, setTodos] = useState<Aluno[]>(() =>
+    supabaseEnabled ? [] : listAlunos()
+  );
 
   const [mounted, setMounted] = useState(false);
   const [testAlunos, setTestAlunos] = useState<TestAluno[]>([]);
   useEffect(() => {
     setMounted(true);
-    setTestAlunos(getTestAlunos());
+    if (supabaseEnabled) {
+      fetchAlunos().then(setTodos).catch(() => {});
+    } else {
+      setTestAlunos(getTestAlunos());
+    }
   }, []);
 
   const ativos = useMemo(
@@ -93,7 +103,7 @@ export default function AlunosPage() {
         }
       />
 
-      {mounted && (
+      {mounted && !supabaseEnabled && (
         <div
           className={`${styles.expBanner} ${
             testAlunos.length >= 3 ? styles.expBannerWarn : ""
@@ -198,7 +208,8 @@ function AlunoRow({
 
   const meta = (
     <span className={styles.meta}>
-      {planoNome(aluno.planoId)} · {aluno.objetivo} · vence{" "}
+      {aluno.planoId ? `${planoNome(aluno.planoId)} · ` : ""}
+      {aluno.objetivo} · vence{" "}
       <span className={atrasada ? styles.vencido : undefined}>
         {dataCurta(aluno.proximoVencimento)}
       </span>

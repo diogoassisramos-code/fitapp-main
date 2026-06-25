@@ -27,7 +27,37 @@ import {
   STATUS_PAGAMENTO,
   MODALIDADE_LABEL,
 } from "@/lib/format";
+import type { Aluno } from "@/lib/types";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { createClient as createServerSupabase } from "@/utils/supabase/server";
 import styles from "./ficha.module.css";
+
+/** Busca o aluno no Supabase (server-side, sessão via cookie). */
+async function fetchAlunoFromDb(id: string): Promise<Aluno | undefined> {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase
+    .from("alunos")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (!data) return undefined;
+  return {
+    id: data.id,
+    planoId: data.plano_id ?? "",
+    nome: data.nome,
+    cpf: data.cpf ?? "",
+    email: data.email ?? "",
+    objetivo: data.objetivo ?? "",
+    statusPagamento: data.status_pagamento,
+    proximoVencimento: data.proximo_vencimento ?? "",
+    inicio: data.inicio ?? "",
+    pesoInicial: Number(data.peso_inicial ?? 0),
+    pesoAtual: Number(data.peso_atual ?? 0),
+    aderenciaTreino: data.aderencia_treino ?? 0,
+    checkinPendente: !!data.checkin_pendente,
+    aguardandoProtocolo: !!data.aguardando_protocolo,
+  };
+}
 
 // Bolhas de conversa mock (sem estado — visual)
 const CONVERSA = [
@@ -43,7 +73,9 @@ export default async function FichaAlunoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const aluno = getAluno(id);
+  let aluno = getAluno(id);
+  // Aluno do banco (criado pelo consultor) quando não é seeded.
+  if (!aluno && supabaseEnabled) aluno = await fetchAlunoFromDb(id);
   if (!aluno) return <TestAlunoFicha id={id} />;
 
   const status = STATUS_PAGAMENTO[aluno.statusPagamento];
@@ -85,9 +117,13 @@ export default async function FichaAlunoPage({
                   <span className={styles.dot}>·</span>
                 </>
               )}
-              <span>{planoNome(aluno.planoId)}</span>
-              <span className={styles.dot}>·</span>
-              <span>{aluno.objetivo}</span>
+              <span>{aluno.planoId ? planoNome(aluno.planoId) : "Sem plano"}</span>
+              {aluno.objetivo ? (
+                <>
+                  <span className={styles.dot}>·</span>
+                  <span>{aluno.objetivo}</span>
+                </>
+              ) : null}
             </p>
             <div className={styles.heroBadge}>
               <StatusBadge variant={status.variant}>{status.label}</StatusBadge>
@@ -124,7 +160,9 @@ export default async function FichaAlunoPage({
         />
         <MetricCard
           label="Próx. vencimento"
-          value={dataLonga(aluno.proximoVencimento)}
+          value={
+            aluno.proximoVencimento ? dataLonga(aluno.proximoVencimento) : "—"
+          }
           sub={status.label}
           icon="calendar"
         />
@@ -377,7 +415,9 @@ export default async function FichaAlunoPage({
           <CardBody className={styles.payBody}>
             <div className={styles.payRow}>
               <span className={styles.payLabel}>Plano</span>
-              <span className={styles.payValue}>{planoNome(aluno.planoId)}</span>
+              <span className={styles.payValue}>
+                {aluno.planoId ? planoNome(aluno.planoId) : "Sem plano"}
+              </span>
             </div>
             <div className={styles.payRow}>
               <span className={styles.payLabel}>Valor</span>
@@ -392,7 +432,9 @@ export default async function FichaAlunoPage({
             <div className={styles.payRow}>
               <span className={styles.payLabel}>Próx. vencimento</span>
               <span className={styles.payValue}>
-                {dataLonga(aluno.proximoVencimento)}
+                {aluno.proximoVencimento
+                  ? dataLonga(aluno.proximoVencimento)
+                  : "—"}
               </span>
             </div>
           </CardBody>

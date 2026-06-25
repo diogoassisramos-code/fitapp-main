@@ -46,6 +46,45 @@ function mapExercicio(r: any): Exercicio {
   };
 }
 
+/** consultoria_id do usuário logado (lido do próprio profile via RLS). */
+export async function getMyConsultoriaId(): Promise<string | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("consultoria_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  return data?.consultoria_id ?? null;
+}
+
+/** Cadastra um aluno na consultoria do consultor logado (RLS valida o tenant). */
+export async function createAluno(input: {
+  nome: string;
+  email?: string;
+  objetivo?: string;
+}): Promise<Aluno> {
+  const supabase = createClient();
+  const consultoria_id = await getMyConsultoriaId();
+  if (!consultoria_id) throw new Error("sem consultoria");
+  const { data, error } = await supabase
+    .from("alunos")
+    .insert({
+      consultoria_id,
+      nome: input.nome,
+      email: input.email || null,
+      objetivo: input.objetivo || null,
+      status_pagamento: "novo",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapAluno(data);
+}
+
 /** Lista os alunos da consultoria do usuário logado (RLS filtra o tenant). */
 export async function fetchAlunos(): Promise<Aluno[]> {
   const supabase = createClient();
