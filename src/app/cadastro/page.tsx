@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Button, Input, Segmented } from "@/components/ui";
+import { signIn } from "@/lib/auth";
 import styles from "./cadastro.module.css";
 
 type Conselho = "CREF" | "CRN" | "CRM";
@@ -38,6 +39,7 @@ export default function CadastroPage() {
   }
 
   function criarConta() {
+    signIn();
     router.push("/");
   }
 

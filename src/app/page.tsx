@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import {
   Button,
@@ -18,6 +18,9 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { listAlunos, stats, planoNome } from "@/lib/data";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { fetchAlunos } from "@/lib/db";
+import type { Aluno } from "@/lib/types";
 import {
   brl,
   dataCurta,
@@ -46,7 +49,13 @@ export default function ResumoPage() {
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<FiltroId>("todos");
 
-  const alunos = listAlunos();
+  // Sem Supabase: mock. Com Supabase: lê os alunos da consultoria (RLS filtra).
+  const [alunos, setAlunos] = useState<Aluno[]>(() =>
+    supabaseEnabled ? [] : listAlunos()
+  );
+  useEffect(() => {
+    if (supabaseEnabled) fetchAlunos().then(setAlunos).catch(() => {});
+  }, []);
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -250,7 +259,8 @@ export default function ResumoPage() {
                     }
                     meta={
                       <>
-                        {planoNome(a.planoId)} · {a.objetivo} · vence{" "}
+                        {a.planoId ? `${planoNome(a.planoId)} · ` : ""}
+                        {a.objetivo} · vence{" "}
                         <span
                           className={
                             atrasada ? styles.venceAtrasada : undefined

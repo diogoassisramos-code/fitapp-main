@@ -5,17 +5,44 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Button, Input } from "@/components/ui";
+import { signIn } from "@/lib/auth";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { createClient } from "@/utils/supabase/client";
 import styles from "./login.module.css";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
+
+  async function entrar() {
+    setErro("");
+    if (supabaseEnabled) {
+      setCarregando(true);
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: senha,
+      });
+      setCarregando(false);
+      if (error) {
+        setErro("E-mail ou senha inválidos.");
+        return;
+      }
+      router.push("/");
+      router.refresh();
+      return;
+    }
+    // Protótipo (sem Supabase): sempre entra.
+    signIn();
+    router.push("/");
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // Protótipo: sempre entra.
-    router.push("/");
+    entrar();
   }
 
   return (
@@ -50,8 +77,20 @@ export default function LoginPage() {
           </Button>
         </div>
 
-        <Button type="submit" variant="primary" icon="login" fullWidth>
-          Entrar
+        {erro && (
+          <p style={{ color: "var(--color-danger)", fontSize: 13, margin: 0 }}>
+            {erro}
+          </p>
+        )}
+
+        <Button
+          type="submit"
+          variant="primary"
+          icon="login"
+          fullWidth
+          disabled={carregando}
+        >
+          {carregando ? "Entrando…" : "Entrar"}
         </Button>
       </form>
 
@@ -63,7 +102,7 @@ export default function LoginPage() {
         variant="outline"
         icon="brand-google"
         fullWidth
-        onClick={() => router.push("/")}
+        onClick={entrar}
       >
         Entrar com Google
       </Button>

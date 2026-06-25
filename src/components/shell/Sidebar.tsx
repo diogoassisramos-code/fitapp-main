@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, COACH } from "@/lib/nav";
+import { signOut } from "@/lib/auth";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { createClient } from "@/utils/supabase/client";
 import styles from "./Sidebar.module.css";
+
+function sair() {
+  if (supabaseEnabled) createClient().auth.signOut();
+  else signOut();
+}
 
 function isActive(href: string, pathname: string): boolean {
   if (href === "/") return pathname === "/";
@@ -72,7 +80,10 @@ export function Sidebar({
         <Link
           href="/login"
           className={`${styles.logout} ${styles.label}`}
-          onClick={onCloseMobile}
+          onClick={() => {
+            sair();
+            onCloseMobile();
+          }}
           title="Sair"
           aria-label="Sair"
         >

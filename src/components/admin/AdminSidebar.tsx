@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ADMIN_NAV, ADMIN_USER } from "@/lib/adminNav";
+import { signOut } from "@/lib/auth";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { createClient } from "@/utils/supabase/client";
 import styles from "./AdminSidebar.module.css";
 
 function isActive(href: string, pathname: string): boolean {
@@ -64,6 +67,10 @@ export function AdminSidebar({
             className={`${styles.logout} ${styles.label}`}
             aria-label="Sair"
             title="Sair"
+            onClick={() => {
+              if (supabaseEnabled) createClient().auth.signOut();
+              else signOut();
+            }}
           >
             <i className="ti ti-logout" aria-hidden />
           </Link>
