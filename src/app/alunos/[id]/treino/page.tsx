@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAlunoResolvido } from "@/lib/useAlunoResolvido";
 import {
   Button,
@@ -17,6 +18,8 @@ import {
 } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { getTreino, exercicioLibrary } from "@/lib/data";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { fetchTreinoByAluno, saveTreino } from "@/lib/db";
 import type { Exercicio, SerieSpec, VideoOrigem } from "@/lib/types";
 import styles from "./treino.module.css";
 
@@ -26,17 +29,69 @@ export default function TreinoBuilderPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const { nome: nomeAluno } = useAlunoResolvido(id);
 
-  const treinoInicial = getTreino(id);
+  // Sem Supabase: mock. Com Supabase: carrega no useEffect abaixo.
+  const treinoInicial = supabaseEnabled ? undefined : getTreino(id);
 
+  const [treinoId, setTreinoId] = useState<string | undefined>(
+    treinoInicial?.id
+  );
   const [nomeTreino, setNomeTreino] = useState(
     treinoInicial?.nome ?? "Novo treino"
   );
   const [exercicios, setExercicios] = useState<Exercicio[]>(
     () => (treinoInicial?.exercicios ?? []).map((e) => ({ ...e }))
   );
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+
+  // Com Supabase: carrega o treino existente do aluno (se houver).
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    let vivo = true;
+    fetchTreinoByAluno(id)
+      .then((t) => {
+        if (!vivo || !t) return;
+        setTreinoId(t.id);
+        setNomeTreino(t.nome);
+        setExercicios(t.exercicios.map((e) => ({ ...e })));
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [id]);
+
+  async function handleEnviar() {
+    if (!supabaseEnabled) return; // stub no protótipo
+    if (exercicios.length === 0) {
+      setErroSalvar("Adicione ao menos um exercício.");
+      return;
+    }
+    if (exercicios.some((e) => !e.nome.trim())) {
+      setErroSalvar("Todos os exercícios precisam de um nome.");
+      return;
+    }
+    setSalvando(true);
+    setErroSalvar(null);
+    try {
+      const saved = await saveTreino(id, {
+        id: treinoId,
+        nome: nomeTreino,
+        rascunho: false,
+        exercicios,
+      });
+      setTreinoId(saved.id);
+      router.push(`/alunos/${id}`);
+      router.refresh(); // invalida o cache RSC da ficha pra mostrar o treino novo
+    } catch (e) {
+      setErroSalvar(e instanceof Error ? e.message : "Falha ao salvar.");
+      setSalvando(false);
+    }
+  }
 
   const [novoCount, setNovoCount] = useState(0);
   const [modalAberto, setModalAberto] = useState(false);
@@ -65,7 +120,7 @@ export default function TreinoBuilderPage({
     const proximaOrdem =
       exercicios.reduce((max, e) => Math.max(max, e.ordem), 0) + 1;
     const novo: Exercicio = {
-      id: `ex-${Date.now()}-${proximaOrdem}`,
+      id: `ex-${crypto.randomUUID()}`,
       ordem: proximaOrdem,
       nome: modelo.nome,
       grupo: modelo.grupo,
@@ -96,7 +151,7 @@ export default function TreinoBuilderPage({
     const proximaOrdem =
       exercicios.reduce((max, e) => Math.max(max, e.ordem), 0) + 1;
     const novo: Exercicio = {
-      id: `ex-novo-${novoCount}`,
+      id: `ex-${crypto.randomUUID()}`,
       ordem: proximaOrdem,
       nome,
       grupo: novoGrupo.trim(),
@@ -122,7 +177,7 @@ export default function TreinoBuilderPage({
         prev.reduce((max, e) => Math.max(max, e.ordem), 0) + 1;
       const copia: Exercicio = {
         ...prev[idx],
-        id: `ex-${Date.now()}-${proximaOrdem}`,
+        id: `ex-${crypto.randomUUID()}`,
         ordem: proximaOrdem,
       };
       const novo = [...prev];
@@ -269,10 +324,20 @@ export default function TreinoBuilderPage({
             <Button variant="ghost" icon="arrow-left" href={`/alunos/${id}`}>
               Voltar
             </Button>
-            <Button icon="send">Enviar para o aluno</Button>
+            <Button icon="send" onClick={handleEnviar} disabled={salvando}>
+              {salvando ? "Enviando…" : "Enviar para o aluno"}
+            </Button>
           </div>
         }
       />
+      {erroSalvar && (
+        <p
+          role="alert"
+          style={{ color: "var(--color-danger)", fontSize: 14, margin: 0 }}
+        >
+          {erroSalvar}
+        </p>
+      )}
 
       <Card>
         <CardBody className={styles.libBody}>

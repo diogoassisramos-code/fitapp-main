@@ -139,3 +139,94 @@ export async function fetchTreinoByAluno(
     exercicios: (exs ?? []).map(mapExercicio),
   };
 }
+
+/** Busca um treino por id (com exercícios ordenados). */
+export async function fetchTreinoById(treinoId: string): Promise<Treino | null> {
+  const supabase = createClient();
+  const { data: treino, error } = await supabase
+    .from("treinos")
+    .select("*")
+    .eq("id", treinoId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!treino) return null;
+  const { data: exs, error: exErr } = await supabase
+    .from("exercicios")
+    .select("*")
+    .eq("treino_id", treino.id)
+    .order("ordem");
+  if (exErr) throw exErr;
+  return {
+    id: treino.id,
+    alunoId: treino.aluno_id,
+    nome: treino.nome,
+    atualizadoEm: treino.updated_at,
+    rascunho: !!treino.rascunho,
+    exercicios: (exs ?? []).map(mapExercicio),
+  };
+}
+
+/** Serializa o estado do construtor → colunas (ordem = índice do array). */
+function exerciciosToRows(treinoId: string, exercicios: Exercicio[]) {
+  return exercicios.map((ex, i) => ({
+    treino_id: treinoId,
+    ordem: i, // posição visual; ignora ex.ordem (defasado pós-reorder)
+    nome: ex.nome,
+    grupo: ex.grupo || null,
+    series: ex.series ?? null,
+    reps: ex.reps || null,
+    descanso_seg: ex.descansoSeg ?? null,
+    video_origem: ex.video?.origem ?? "vazio",
+    video_url: ex.video?.url || null,
+    observacoes: ex.observacoes || null,
+    series_detalhe: ex.seriesDetalhe ?? [],
+    // sem id (gen_random_uuid) e sem consultoria_id (trigger preenche)
+  }));
+}
+
+/**
+ * Salva o treino do aluno e SUBSTITUI seus exercícios. consultoria_id é setado
+ * por trigger (não enviamos). Estratégia delete-then-insert (protótipo); a
+ * versão atômica via RPC está em supabase/save_treino.sql.
+ */
+export async function saveTreino(
+  alunoId: string,
+  treino: { id?: string; nome: string; rascunho?: boolean; exercicios: Exercicio[] }
+): Promise<Treino> {
+  const supabase = createClient();
+  const nomeFinal = treino.nome?.trim() || "Novo treino";
+  let treinoId: string;
+
+  if (!treino.id) {
+    const { data, error } = await supabase
+      .from("treinos")
+      .insert({ aluno_id: alunoId, nome: nomeFinal, rascunho: treino.rascunho ?? false })
+      .select("id")
+      .single();
+    if (error) throw error;
+    treinoId = data.id;
+  } else {
+    const { error } = await supabase
+      .from("treinos")
+      .update({ nome: nomeFinal, rascunho: treino.rascunho ?? false })
+      .eq("id", treino.id);
+    if (error) throw error;
+    treinoId = treino.id;
+  }
+
+  const { error: delErr } = await supabase
+    .from("exercicios")
+    .delete()
+    .eq("treino_id", treinoId);
+  if (delErr) throw delErr;
+
+  const rows = exerciciosToRows(treinoId, treino.exercicios);
+  if (rows.length) {
+    const { error: insErr } = await supabase.from("exercicios").insert(rows);
+    if (insErr) throw insErr;
+  }
+
+  const saved = await fetchTreinoById(treinoId);
+  if (!saved) throw new Error("treino não encontrado após salvar");
+  return saved;
+}

@@ -27,10 +27,51 @@ import {
   STATUS_PAGAMENTO,
   MODALIDADE_LABEL,
 } from "@/lib/format";
-import type { Aluno } from "@/lib/types";
+import type { Aluno, Treino } from "@/lib/types";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient as createServerSupabase } from "@/utils/supabase/server";
 import styles from "./ficha.module.css";
+
+/** Treino do aluno no Supabase (server-side). */
+async function fetchTreinoFromDb(alunoId: string): Promise<Treino | undefined> {
+  const supabase = await createServerSupabase();
+  const { data: t } = await supabase
+    .from("treinos")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!t) return undefined;
+  const { data: exs } = await supabase
+    .from("exercicios")
+    .select("*")
+    .eq("treino_id", t.id)
+    .order("ordem");
+  return {
+    id: t.id,
+    alunoId: t.aluno_id,
+    nome: t.nome,
+    atualizadoEm: t.updated_at,
+    rascunho: !!t.rascunho,
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    exercicios: (exs ?? []).map((r: any) => ({
+      id: r.id,
+      ordem: r.ordem ?? 0,
+      nome: r.nome,
+      grupo: r.grupo ?? "",
+      series: r.series ?? 0,
+      reps: r.reps ?? "",
+      descansoSeg: r.descanso_seg ?? 0,
+      video: { origem: r.video_origem ?? "vazio", url: r.video_url ?? undefined },
+      observacoes: r.observacoes ?? undefined,
+      seriesDetalhe:
+        Array.isArray(r.series_detalhe) && r.series_detalhe.length
+          ? r.series_detalhe
+          : undefined,
+    })),
+  };
+}
 
 /** Busca o aluno no Supabase (server-side, sessão via cookie). */
 async function fetchAlunoFromDb(id: string): Promise<Aluno | undefined> {
@@ -87,7 +128,8 @@ export default async function FichaAlunoPage({
   const deltaPeso = aluno.pesoAtual - aluno.pesoInicial;
   const deltaPesoStr = `${deltaPeso >= 0 ? "+" : ""}${deltaPeso.toFixed(1)} kg`;
 
-  const treino = getTreino(aluno.id);
+  let treino = getTreino(aluno.id);
+  if (!treino && supabaseEnabled) treino = await fetchTreinoFromDb(aluno.id);
   const dieta = getDieta(aluno.id);
   const protocolo = getProtocolo(aluno.id);
   const protocoloItens =

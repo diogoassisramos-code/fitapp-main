@@ -20,6 +20,7 @@ import {
 import { listAlunos, stats, planoNome } from "@/lib/data";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { fetchAlunos } from "@/lib/db";
+import { useConsultor } from "@/lib/useConsultor";
 import type { Aluno } from "@/lib/types";
 import {
   brl,
@@ -48,6 +49,9 @@ export default function ResumoPage() {
   const router = useRouter();
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<FiltroId>("todos");
+
+  const consultor = useConsultor();
+  const primeiroNome = consultor.nome.split(/\s+/)[0];
 
   // Sem Supabase: mock. Com Supabase: lê os alunos da consultoria (RLS filtra).
   const [alunos, setAlunos] = useState<Aluno[]>(() =>
@@ -106,7 +110,7 @@ export default function ResumoPage() {
     <>
       <PageHeader
         eyebrow="CoachFit"
-        title="Olá, Rafael 👋"
+        title={primeiroNome ? `Olá, ${primeiroNome} 👋` : "Olá 👋"}
         subtitle={
           stats.alunosAtivos +
           " alunos ativos · " +

@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_ITEMS, COACH } from "@/lib/nav";
+import { NAV_ITEMS } from "@/lib/nav";
 import { signOut } from "@/lib/auth";
+import { useConsultor } from "@/lib/useConsultor";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient } from "@/utils/supabase/client";
 import styles from "./Sidebar.module.css";
@@ -26,6 +27,7 @@ export function Sidebar({
   onCloseMobile: () => void;
 }) {
   const pathname = usePathname();
+  const coach = useConsultor();
 
   return (
     <aside className={styles.sidebar} data-open={open}>
@@ -71,10 +73,12 @@ export function Sidebar({
           className={styles.userCard}
           onClick={onCloseMobile}
         >
-          <span className={styles.avatar}>{COACH.iniciais}</span>
+          <span className={styles.avatar}>{coach.iniciais}</span>
           <span className={`${styles.userMeta} ${styles.label}`}>
-            <span className={styles.userName}>{COACH.nome}</span>
-            <span className={styles.userConselho}>{COACH.conselho}</span>
+            <span className={styles.userName}>{coach.nome}</span>
+            <span className={styles.userConselho}>
+              {coach.conselho || "Consultor"}
+            </span>
           </span>
         </Link>
         <Link
