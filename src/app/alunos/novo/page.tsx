@@ -37,6 +37,7 @@ export default function NovoAlunoPage() {
   const [salvando, setSalvando] = useState(false);
 
   const [nome, setNome] = useState("");
+  const [cpf, setCpf] = useState("");
   const [idade, setIdade] = useState("");
   const [altura, setAltura] = useState("");
   const [email, setEmail] = useState("");
@@ -57,6 +58,7 @@ export default function NovoAlunoPage() {
 
   function limparForm() {
     setNome("");
+    setCpf("");
     setIdade("");
     setAltura("");
     setEmail("");
@@ -72,7 +74,7 @@ export default function NovoAlunoPage() {
       if (!nome.trim()) return;
       setSalvando(true);
       try {
-        await createAluno({ nome: nome.trim(), email, objetivo });
+        await createAluno({ nome: nome.trim(), cpf, email, telefone, objetivo });
         router.push("/alunos");
       } catch {
         setErro("Não foi possível cadastrar o aluno. Tente novamente.");
@@ -271,6 +273,14 @@ export default function NovoAlunoPage() {
               placeholder="Ex.: Marina Costa"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
+            />
+
+            <Input
+              label="CPF (opcional)"
+              icon="id"
+              placeholder="000.000.000-00"
+              value={cpf}
+              onChange={(e) => setCpf(e.target.value)}
             />
 
             <div className={styles.grid}>

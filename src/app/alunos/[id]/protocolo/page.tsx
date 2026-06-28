@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAlunoResolvido } from "@/lib/useAlunoResolvido";
 import {
   Button,
@@ -16,6 +17,8 @@ import {
 } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { getProtocolo, suplementoLibrary } from "@/lib/data";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { fetchProtocoloByAluno, saveProtocolo } from "@/lib/db";
 import type {
   ProtocoloBloco,
   ProtocoloItem,
@@ -29,13 +32,55 @@ export default function ProtocoloPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const { nome: nomeAluno } = useAlunoResolvido(id);
 
-  const protocolo = getProtocolo(id);
+  const protocolo = supabaseEnabled ? undefined : getProtocolo(id);
+  const [protoId, setProtoId] = useState<string | undefined>(protocolo?.id);
   const [blocos, setBlocos] = useState<ProtocoloBloco[]>(
     protocolo?.blocos ?? []
   );
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+
+  // Com Supabase: carrega o protocolo existente do aluno (se houver).
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    let vivo = true;
+    fetchProtocoloByAluno(id)
+      .then((p) => {
+        if (!vivo || !p) return;
+        setProtoId(p.id);
+        setBlocos(p.blocos.map((b) => ({ ...b })));
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [id]);
+
+  async function handleEnviar() {
+    if (!supabaseEnabled) return;
+    setSalvando(true);
+    setErroSalvar(null);
+    try {
+      const saved = await saveProtocolo(id, {
+        id: protoId,
+        rascunho: false,
+        blocos,
+      });
+      setProtoId(saved.id);
+      router.push(`/alunos/${id}`);
+      router.refresh();
+    } catch (e) {
+      const msg = (e as { message?: string })?.message;
+      setErroSalvar(
+        msg ? `Falha ao salvar: ${msg}` : "Falha ao salvar."
+      );
+      setSalvando(false);
+    }
+  }
 
   // Contador incremental para ids únicos (nunca Date.now()).
   const [contador, setContador] = useState(1);
@@ -214,10 +259,20 @@ export default function ProtocoloPage({
             <Button variant="ghost" icon="arrow-left" href={`/alunos/${id}`}>
               Voltar
             </Button>
-            <Button icon="send">Enviar para o aluno</Button>
+            <Button icon="send" onClick={handleEnviar} disabled={salvando}>
+              {salvando ? "Enviando…" : "Enviar para o aluno"}
+            </Button>
           </div>
         }
       />
+      {erroSalvar && (
+        <p
+          role="alert"
+          style={{ color: "var(--color-text-danger)", fontSize: 14, margin: 0 }}
+        >
+          {erroSalvar}
+        </p>
+      )}
 
       {/* Biblioteca de suplementos */}
       <Card>

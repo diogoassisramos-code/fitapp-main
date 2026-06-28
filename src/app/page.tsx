@@ -264,14 +264,20 @@ export default function ResumoPage() {
                     meta={
                       <>
                         {a.planoId ? `${planoNome(a.planoId)} · ` : ""}
-                        {a.objetivo} · vence{" "}
-                        <span
-                          className={
-                            atrasada ? styles.venceAtrasada : undefined
-                          }
-                        >
-                          {dataCurta(a.proximoVencimento)}
-                        </span>
+                        {a.objetivo || "Sem objetivo definido"}
+                        {a.proximoVencimento ? (
+                          <>
+                            {" "}
+                            · vence{" "}
+                            <span
+                              className={
+                                atrasada ? styles.venceAtrasada : undefined
+                              }
+                            >
+                              {dataCurta(a.proximoVencimento)}
+                            </span>
+                          </>
+                        ) : null}
                       </>
                     }
                     tags={

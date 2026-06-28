@@ -100,6 +100,7 @@ create table if not exists public.alunos (
   nome                text not null,
   cpf                 text,
   email               text,
+  telefone            text,
   objetivo            text,
   status_pagamento    status_pagamento not null default 'novo',
   proximo_vencimento  date,

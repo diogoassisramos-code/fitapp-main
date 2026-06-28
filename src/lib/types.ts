@@ -142,6 +142,12 @@ export type Alimento = {
   nome: string;
   quantidade: { valor: number; unidade: string };
   macros: Macros;
+  /**
+   * Macros por 1 unidade de `quantidade.valor` (base de referência). Quando
+   * presente, os macros escalam proporcionalmente à quantidade no construtor.
+   * Auxiliar de UI — não é persistido.
+   */
+  macrosBase?: Macros;
   substituicoes: string[];
   /** Alimento criado pelo coach (fora da tabela TACO). */
   custom?: boolean;

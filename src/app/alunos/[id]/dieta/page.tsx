@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAlunoResolvido } from "@/lib/useAlunoResolvido";
 import {
   Button,
@@ -18,9 +19,34 @@ import {
 } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { getDieta, alimentoLibrary } from "@/lib/data";
-import type { Refeicao, Alimento, AlimentoModelo } from "@/lib/types";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { fetchDietaByAluno, saveDieta } from "@/lib/db";
+import type { Refeicao, Alimento, AlimentoModelo, Macros } from "@/lib/types";
 import { brlNumber } from "@/lib/format";
 import styles from "./dieta.module.css";
+
+/** Macros escalados por um fator — SEM arredondar (preserva a base por-unidade). */
+function escalarMacros(m: Macros, f: number): Macros {
+  return { kcal: m.kcal * f, p: m.p * f, c: m.c * f, g: m.g * f };
+}
+
+/** Arredonda os macros pra exibição (só no valor final, nunca na base). */
+function arredondarMacros(m: Macros): Macros {
+  return {
+    kcal: Math.round(m.kcal),
+    p: Math.round(m.p),
+    c: Math.round(m.c),
+    g: Math.round(m.g),
+  };
+}
+
+/** "100 g" -> { valor: 100, unidade: "g" }; fallback 1 porção. */
+function parsePorcao(porcao: string): { valor: number; unidade: string } {
+  const match = (porcao ?? "").trim().match(/^([\d.,]+)\s*(.*)$/);
+  if (!match) return { valor: 1, unidade: "porção" };
+  const valor = parseFloat(match[1].replace(",", ".")) || 1;
+  return { valor, unidade: match[2].trim() || "porção" };
+}
 
 export default function DietaPage({
   params,
@@ -28,14 +54,58 @@ export default function DietaPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const { nome: nomeAluno } = useAlunoResolvido(id);
 
-  const dieta = getDieta(id);
+  const dieta = supabaseEnabled ? undefined : getDieta(id);
+  const [dietaId, setDietaId] = useState<string | undefined>(dieta?.id);
   const [refeicoes, setRefeicoes] = useState<Refeicao[]>(
     dieta?.refeicoes ?? []
   );
-  const metaKcal = dieta?.metaKcal ?? 2000;
+  const [metaKcal, setMetaKcal] = useState(dieta?.metaKcal ?? 2000);
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+
+  // Com Supabase: carrega a dieta existente do aluno (se houver).
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    let vivo = true;
+    fetchDietaByAluno(id)
+      .then((d) => {
+        if (!vivo || !d) return;
+        setDietaId(d.id);
+        setMetaKcal(d.metaKcal);
+        setRefeicoes(d.refeicoes.map((r) => ({ ...r })));
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [id]);
+
+  async function handleEnviar() {
+    if (!supabaseEnabled) return;
+    setSalvando(true);
+    setErroSalvar(null);
+    try {
+      const saved = await saveDieta(id, {
+        id: dietaId,
+        metaKcal,
+        rascunho: false,
+        refeicoes,
+      });
+      setDietaId(saved.id);
+      router.push(`/alunos/${id}`);
+      router.refresh();
+    } catch (e) {
+      const msg = (e as { message?: string })?.message;
+      setErroSalvar(
+        msg ? `Falha ao salvar: ${msg}` : "Falha ao salvar."
+      );
+      setSalvando(false);
+    }
+  }
 
   // Contador incremental para ids únicos (nunca Date.now()).
   const [contador, setContador] = useState(1);
@@ -84,11 +154,15 @@ export default function DietaPage({
   }
 
   function alimentoDeModelo(m: AlimentoModelo, id: string): Alimento {
+    const q = parsePorcao(m.porcao);
     return {
       id,
       nome: m.nome,
-      quantidade: { valor: 1, unidade: "porção" },
+      quantidade: q,
       macros: { ...m.macros },
+      // base por unidade → macros acompanham a quantidade ao editar
+      macrosBase:
+        q.valor > 0 ? escalarMacros(m.macros, 1 / q.valor) : { ...m.macros },
       substituicoes: [],
     };
   }
@@ -111,18 +185,30 @@ export default function DietaPage({
     patch: Partial<Alimento["quantidade"]>
   ) {
     setRefeicoes((prev) =>
-      prev.map((r) =>
-        r.id === refeicaoId
-          ? {
-              ...r,
-              alimentos: r.alimentos.map((a) =>
-                a.id === alimentoId
-                  ? { ...a, quantidade: { ...a.quantidade, ...patch } }
-                  : a
-              ),
-            }
-          : r
-      )
+      prev.map((r) => {
+        if (r.id !== refeicaoId) return r;
+        return {
+          ...r,
+          alimentos: r.alimentos.map((a) => {
+            if (a.id !== alimentoId) return a;
+            const novaQtd = { ...a.quantidade, ...patch };
+            // Só o valor escala os macros (mudar a unidade não recalcula).
+            if (patch.valor === undefined) return { ...a, quantidade: novaQtd };
+            // Base por unidade: usa a guardada ou deriva do estado atual.
+            const base =
+              a.macrosBase ??
+              (a.quantidade.valor > 0
+                ? escalarMacros(a.macros, 1 / a.quantidade.valor)
+                : a.macros);
+            return {
+              ...a,
+              quantidade: novaQtd,
+              macrosBase: base,
+              macros: arredondarMacros(escalarMacros(base, patch.valor)),
+            };
+          }),
+        };
+      })
     );
   }
 
@@ -163,19 +249,19 @@ export default function DietaPage({
       form.kcal !== "" || form.p !== "" || form.c !== "" || form.g !== "";
     const semMacros = !algumMacro;
 
+    const valor = Number(form.valor) || 0;
+    const macros: Macros = {
+      kcal: Number(form.kcal) || 0,
+      p: Number(form.p) || 0,
+      c: Number(form.c) || 0,
+      g: Number(form.g) || 0,
+    };
     const novo: Alimento = {
       id: novoId("custom"),
       nome: form.nome.trim(),
-      quantidade: {
-        valor: Number(form.valor) || 0,
-        unidade: form.unidade,
-      },
-      macros: {
-        kcal: Number(form.kcal) || 0,
-        p: Number(form.p) || 0,
-        c: Number(form.c) || 0,
-        g: Number(form.g) || 0,
-      },
+      quantidade: { valor, unidade: form.unidade },
+      macros,
+      macrosBase: valor > 0 ? escalarMacros(macros, 1 / valor) : macros,
       substituicoes: [],
       custom: true,
       ...(semMacros ? { semMacros: true } : {}),
@@ -253,10 +339,20 @@ export default function DietaPage({
             <Button variant="ghost" icon="arrow-left" href={`/alunos/${id}`}>
               Voltar
             </Button>
-            <Button icon="send">Enviar para o aluno</Button>
+            <Button icon="send" onClick={handleEnviar} disabled={salvando}>
+              {salvando ? "Enviando…" : "Enviar para o aluno"}
+            </Button>
           </div>
         }
       />
+      {erroSalvar && (
+        <p
+          role="alert"
+          style={{ color: "var(--color-text-danger)", fontSize: 14, margin: 0 }}
+        >
+          {erroSalvar}
+        </p>
+      )}
 
       {/* Busca TACO */}
       <Card>
@@ -353,23 +449,55 @@ export default function DietaPage({
                 <span className={`${handleClassName} ${styles.refeicaoGrip}`}>
                   <i className="ti ti-grip-vertical" aria-hidden />
                 </span>
-                <div className={styles.refeicaoTitle}>
-                  <span className={styles.refeicaoNome}>{r.nome}</span>
-                  <span className={styles.refeicaoHorario}>
-                    <i className="ti ti-clock" aria-hidden /> {r.horario}
-                  </span>
+                <div
+                  className={styles.refeicaoTitle}
+                  style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 0 }}
+                >
+                  <input
+                    value={r.nome}
+                    onChange={(e) =>
+                      atualizarRefeicao(r.id, { nome: e.target.value })
+                    }
+                    aria-label="Nome da refeição"
+                    placeholder="Nome da refeição"
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontWeight: 700,
+                      fontSize: 15,
+                      color: "var(--color-text-primary)",
+                      background: "var(--color-background-secondary)",
+                      border: "1px solid var(--color-border-secondary)",
+                      borderRadius: 8,
+                      padding: "6px 10px",
+                    }}
+                  />
+                  <input
+                    type="time"
+                    value={r.horario}
+                    onChange={(e) =>
+                      atualizarRefeicao(r.id, { horario: e.target.value })
+                    }
+                    aria-label="Horário da refeição"
+                    style={{
+                      fontSize: 13,
+                      color: "var(--color-text-secondary)",
+                      background: "var(--color-background-secondary)",
+                      border: "1px solid var(--color-border-secondary)",
+                      borderRadius: 8,
+                      padding: "6px 8px",
+                    }}
+                  />
                 </div>
                 <span className={styles.refeicaoKcal}>
                   {kcalRefeicao(r)} kcal
                 </span>
                 <KebabMenu
                   items={[
-                    { label: "Renomear", icon: "pencil" },
                     {
                       label: "Remover refeição",
                       icon: "trash",
                       danger: true,
-                      separatorBefore: true,
                       onClick: () => removerRefeicao(r.id),
                     },
                   ]}

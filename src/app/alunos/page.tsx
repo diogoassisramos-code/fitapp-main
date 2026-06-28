@@ -209,10 +209,16 @@ function AlunoRow({
   const meta = (
     <span className={styles.meta}>
       {aluno.planoId ? `${planoNome(aluno.planoId)} · ` : ""}
-      {aluno.objetivo} · vence{" "}
-      <span className={atrasada ? styles.vencido : undefined}>
-        {dataCurta(aluno.proximoVencimento)}
-      </span>
+      {aluno.objetivo || "Sem objetivo definido"}
+      {aluno.proximoVencimento ? (
+        <>
+          {" "}
+          · vence{" "}
+          <span className={atrasada ? styles.vencido : undefined}>
+            {dataCurta(aluno.proximoVencimento)}
+          </span>
+        </>
+      ) : null}
     </span>
   );
 

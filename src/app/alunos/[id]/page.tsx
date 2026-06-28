@@ -27,10 +27,83 @@ import {
   STATUS_PAGAMENTO,
   MODALIDADE_LABEL,
 } from "@/lib/format";
-import type { Aluno, Treino } from "@/lib/types";
+import type { Aluno, Treino, Dieta, Protocolo } from "@/lib/types";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient as createServerSupabase } from "@/utils/supabase/server";
 import styles from "./ficha.module.css";
+
+/** Dieta do aluno no Supabase (server-side; o card usa metaKcal + nº de refeições). */
+async function fetchDietaFromDb(alunoId: string): Promise<Dieta | undefined> {
+  const supabase = await createServerSupabase();
+  const { data: d, error } = await supabase
+    .from("dietas")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !d) return undefined; // tabela ainda não criada → sem dieta
+  const { data: refs } = await supabase
+    .from("refeicoes")
+    .select("id,ordem,nome,horario,observacoes")
+    .eq("dieta_id", d.id)
+    .order("ordem");
+  return {
+    id: d.id,
+    alunoId: d.aluno_id,
+    metaKcal: Number(d.meta_kcal ?? 0),
+    rascunho: !!d.rascunho,
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    refeicoes: (refs ?? []).map((r: any) => ({
+      id: r.id,
+      ordem: r.ordem ?? 0,
+      nome: r.nome,
+      horario: r.horario ?? "",
+      observacoes: r.observacoes ?? undefined,
+      alimentos: [],
+    })),
+  };
+}
+
+/** Protocolo do aluno no Supabase (server-side; o card usa nº de itens). */
+async function fetchProtocoloFromDb(
+  alunoId: string
+): Promise<Protocolo | undefined> {
+  const supabase = await createServerSupabase();
+  const { data: p, error } = await supabase
+    .from("protocolos")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !p) return undefined; // tabela ainda não criada → sem protocolo
+  const { data: blocos } = await supabase
+    .from("protocolo_blocos")
+    .select("id,ordem,nome")
+    .eq("protocolo_id", p.id)
+    .order("ordem");
+  const blocoIds = (blocos ?? []).map((b: any) => b.id);
+  let itens: any[] = [];
+  if (blocoIds.length) {
+    const { data: it } = await supabase
+      .from("protocolo_itens")
+      .select("id,bloco_id")
+      .in("bloco_id", blocoIds);
+    itens = it ?? [];
+  }
+  return {
+    id: p.id,
+    alunoId: p.aluno_id,
+    rascunho: !!p.rascunho,
+    blocos: (blocos ?? []).map((b: any) => ({
+      id: b.id,
+      ordem: b.ordem ?? 0,
+      nome: b.nome,
+      itens: itens.filter((x) => x.bloco_id === b.id),
+    })),
+  };
+}
 
 /** Treino do aluno no Supabase (server-side). */
 async function fetchTreinoFromDb(alunoId: string): Promise<Treino | undefined> {
@@ -130,8 +203,11 @@ export default async function FichaAlunoPage({
 
   let treino = getTreino(aluno.id);
   if (!treino && supabaseEnabled) treino = await fetchTreinoFromDb(aluno.id);
-  const dieta = getDieta(aluno.id);
-  const protocolo = getProtocolo(aluno.id);
+  let dieta = getDieta(aluno.id);
+  if (!dieta && supabaseEnabled) dieta = await fetchDietaFromDb(aluno.id);
+  let protocolo = getProtocolo(aluno.id);
+  if (!protocolo && supabaseEnabled)
+    protocolo = await fetchProtocoloFromDb(aluno.id);
   const protocoloItens =
     protocolo?.blocos.reduce((acc, b) => acc + b.itens.length, 0) ?? 0;
   const checkin = ultimoCheckin(aluno.id);

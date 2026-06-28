@@ -5,7 +5,17 @@
  * os acessores mock de `data.ts`.
  */
 import { createClient } from "@/utils/supabase/client";
-import type { Aluno, Treino, Exercicio } from "./types";
+import type {
+  Aluno,
+  Treino,
+  Exercicio,
+  Dieta,
+  Refeicao,
+  Alimento,
+  Protocolo,
+  ProtocoloBloco,
+  ProtocoloItem,
+} from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -66,6 +76,8 @@ export async function createAluno(input: {
   nome: string;
   email?: string;
   objetivo?: string;
+  cpf?: string;
+  telefone?: string;
 }): Promise<Aluno> {
   const supabase = createClient();
   const consultoria_id = await getMyConsultoriaId();
@@ -77,12 +89,80 @@ export async function createAluno(input: {
       nome: input.nome,
       email: input.email || null,
       objetivo: input.objetivo || null,
+      cpf: input.cpf || null,
+      telefone: input.telefone || null,
       status_pagamento: "novo",
     })
     .select()
     .single();
   if (error) throw error;
   return mapAluno(data);
+}
+
+// ── Admin: vincular/trocar treinador de um aluno ───────────────────────────
+// (funciona só com sessão de admin — a RLS is_admin() libera cross-tenant)
+
+export type AdminAlunoResult = {
+  id: string;
+  nome: string;
+  cpf: string | null;
+  email: string | null;
+  objetivo: string | null;
+  consultoriaId: string | null;
+  consultoriaNome: string | null;
+};
+
+export type AdminConsultoria = { id: string; nome: string };
+
+/** Busca alunos por CPF (parcial) OU id exato. Admin enxerga todos (RLS). */
+export async function adminFindAluno(q: string): Promise<AdminAlunoResult[]> {
+  const supabase = createClient();
+  const termo = q.trim();
+  if (!termo) return [];
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(termo);
+  let req = supabase
+    .from("alunos")
+    .select("id,nome,cpf,email,objetivo,consultoria_id,consultorias(nome,nome_negocio)");
+  req = isUuid ? req.eq("id", termo) : req.ilike("cpf", `%${termo}%`);
+  const { data, error } = await req.limit(20);
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    nome: r.nome,
+    cpf: r.cpf ?? null,
+    email: r.email ?? null,
+    objetivo: r.objetivo ?? null,
+    consultoriaId: r.consultoria_id ?? null,
+    consultoriaNome: r.consultorias?.nome_negocio ?? r.consultorias?.nome ?? null,
+  }));
+}
+
+/** Lista as consultorias (treinadores) pra o admin escolher. */
+export async function adminListConsultorias(): Promise<AdminConsultoria[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("consultorias")
+    .select("id,nome,nome_negocio")
+    .order("nome");
+  if (error) throw error;
+  return (data ?? []).map((c: any) => ({
+    id: c.id,
+    nome: c.nome_negocio || c.nome,
+  }));
+}
+
+/** Vincula/troca o treinador do aluno (= define a consultoria). */
+export async function adminSetAlunoConsultoria(
+  alunoId: string,
+  consultoriaId: string
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("alunos")
+    .update({ consultoria_id: consultoriaId })
+    .eq("id", alunoId);
+  if (error) throw error;
 }
 
 /** Lista os alunos da consultoria do usuário logado (RLS filtra o tenant). */
@@ -228,5 +308,275 @@ export async function saveTreino(
 
   const saved = await fetchTreinoById(treinoId);
   if (!saved) throw new Error("treino não encontrado após salvar");
+  return saved;
+}
+
+// ── Dieta ──────────────────────────────────────────────────────────────────
+function mapAlimento(r: any): Alimento {
+  return {
+    id: r.id,
+    nome: r.nome,
+    quantidade: { valor: Number(r.qtd_valor ?? 0), unidade: r.qtd_unidade ?? "" },
+    macros: {
+      kcal: Number(r.kcal ?? 0),
+      p: Number(r.p ?? 0),
+      c: Number(r.c ?? 0),
+      g: Number(r.g ?? 0),
+    },
+    substituicoes: Array.isArray(r.substituicoes) ? r.substituicoes : [],
+    custom: r.custom || undefined,
+    semMacros: r.sem_macros || undefined,
+    observacoes: r.observacoes ?? undefined,
+  };
+}
+
+function mapRefeicao(r: any, alimentos: any[]): Refeicao {
+  return {
+    id: r.id,
+    ordem: r.ordem ?? 0,
+    nome: r.nome,
+    horario: r.horario ?? "",
+    observacoes: r.observacoes ?? undefined,
+    alimentos: alimentos.filter((a) => a.refeicao_id === r.id).map(mapAlimento),
+  };
+}
+
+/** Dieta do aluno com refeições e alimentos ordenados. */
+export async function fetchDietaByAluno(alunoId: string): Promise<Dieta | null> {
+  const supabase = createClient();
+  const { data: dieta, error } = await supabase
+    .from("dietas")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!dieta) return null;
+
+  const { data: refs, error: rErr } = await supabase
+    .from("refeicoes")
+    .select("*")
+    .eq("dieta_id", dieta.id)
+    .order("ordem");
+  if (rErr) throw rErr;
+
+  const refIds = (refs ?? []).map((r) => r.id);
+  let alimentos: any[] = [];
+  if (refIds.length) {
+    const { data: al, error: aErr } = await supabase
+      .from("alimentos")
+      .select("*")
+      .in("refeicao_id", refIds)
+      .order("ordem");
+    if (aErr) throw aErr;
+    alimentos = al ?? [];
+  }
+
+  return {
+    id: dieta.id,
+    alunoId: dieta.aluno_id,
+    metaKcal: Number(dieta.meta_kcal ?? 0),
+    rascunho: !!dieta.rascunho,
+    refeicoes: (refs ?? []).map((r) => mapRefeicao(r, alimentos)),
+  };
+}
+
+function alimentosToRows(refeicaoId: string, alimentos: Alimento[]) {
+  return alimentos.map((a, i) => ({
+    refeicao_id: refeicaoId,
+    ordem: i,
+    nome: a.nome,
+    qtd_valor: a.quantidade?.valor ?? null,
+    qtd_unidade: a.quantidade?.unidade || null,
+    kcal: a.macros?.kcal ?? null,
+    p: a.macros?.p ?? null,
+    c: a.macros?.c ?? null,
+    g: a.macros?.g ?? null,
+    substituicoes: a.substituicoes ?? [],
+    custom: a.custom ?? false,
+    sem_macros: a.semMacros ?? false,
+    observacoes: a.observacoes || null,
+  }));
+}
+
+/**
+ * Salva a dieta e SUBSTITUI refeições + alimentos (replace de 2 níveis via
+ * cascata). consultoria_id via trigger. delete-then-insert (RPC atômica
+ * opcional em supabase/save_dieta.sql).
+ */
+export async function saveDieta(
+  alunoId: string,
+  dieta: { id?: string; metaKcal: number; rascunho?: boolean; refeicoes: Refeicao[] }
+): Promise<Dieta> {
+  const supabase = createClient();
+  let dietaId: string;
+
+  if (!dieta.id) {
+    const { data, error } = await supabase
+      .from("dietas")
+      .insert({ aluno_id: alunoId, meta_kcal: dieta.metaKcal ?? 0, rascunho: dieta.rascunho ?? false })
+      .select("id")
+      .single();
+    if (error) throw error;
+    dietaId = data.id;
+  } else {
+    const { error } = await supabase
+      .from("dietas")
+      .update({ meta_kcal: dieta.metaKcal ?? 0, rascunho: dieta.rascunho ?? false })
+      .eq("id", dieta.id);
+    if (error) throw error;
+    dietaId = dieta.id;
+  }
+
+  const { error: delErr } = await supabase.from("refeicoes").delete().eq("dieta_id", dietaId);
+  if (delErr) throw delErr;
+
+  for (let i = 0; i < dieta.refeicoes.length; i++) {
+    const r = dieta.refeicoes[i];
+    const { data: ref, error: rErr } = await supabase
+      .from("refeicoes")
+      .insert({ dieta_id: dietaId, ordem: i, nome: r.nome, horario: r.horario || null, observacoes: r.observacoes || null })
+      .select("id")
+      .single();
+    if (rErr) throw rErr;
+    const rows = alimentosToRows(ref.id, r.alimentos ?? []);
+    if (rows.length) {
+      const { error: aErr } = await supabase.from("alimentos").insert(rows);
+      if (aErr) throw aErr;
+    }
+  }
+
+  const saved = await fetchDietaByAluno(alunoId);
+  if (!saved) throw new Error("dieta não encontrada após salvar");
+  return saved;
+}
+
+// ── Protocolo ──────────────────────────────────────────────────────────────
+function mapItem(r: any): ProtocoloItem {
+  return {
+    id: r.id,
+    ordem: r.ordem ?? 0,
+    nome: r.nome,
+    dose: r.dose ?? "",
+    horario: r.horario ?? undefined,
+    observacoes: r.observacoes ?? undefined,
+    comoUsar: r.como_usar ?? undefined,
+    comOQue: r.com_o_que ?? undefined,
+    beneficio: r.beneficio ?? undefined,
+    duracao: r.duracao ?? undefined,
+  };
+}
+
+export async function fetchProtocoloByAluno(
+  alunoId: string
+): Promise<Protocolo | null> {
+  const supabase = createClient();
+  const { data: proto, error } = await supabase
+    .from("protocolos")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!proto) return null;
+
+  const { data: blocos, error: bErr } = await supabase
+    .from("protocolo_blocos")
+    .select("*")
+    .eq("protocolo_id", proto.id)
+    .order("ordem");
+  if (bErr) throw bErr;
+
+  const blocoIds = (blocos ?? []).map((b) => b.id);
+  let itens: any[] = [];
+  if (blocoIds.length) {
+    const { data: it, error: iErr } = await supabase
+      .from("protocolo_itens")
+      .select("*")
+      .in("bloco_id", blocoIds)
+      .order("ordem");
+    if (iErr) throw iErr;
+    itens = it ?? [];
+  }
+
+  return {
+    id: proto.id,
+    alunoId: proto.aluno_id,
+    rascunho: !!proto.rascunho,
+    blocos: (blocos ?? []).map(
+      (b): ProtocoloBloco => ({
+        id: b.id,
+        ordem: b.ordem ?? 0,
+        nome: b.nome,
+        itens: itens.filter((x) => x.bloco_id === b.id).map(mapItem),
+      })
+    ),
+  };
+}
+
+function itensToRows(blocoId: string, itens: ProtocoloItem[]) {
+  return itens.map((it, i) => ({
+    bloco_id: blocoId,
+    ordem: i,
+    nome: it.nome,
+    dose: it.dose || null,
+    horario: it.horario || null,
+    observacoes: it.observacoes || null,
+    como_usar: it.comoUsar || null,
+    com_o_que: it.comOQue || null,
+    beneficio: it.beneficio || null,
+    duracao: it.duracao || null,
+  }));
+}
+
+export async function saveProtocolo(
+  alunoId: string,
+  proto: { id?: string; rascunho?: boolean; blocos: ProtocoloBloco[] }
+): Promise<Protocolo> {
+  const supabase = createClient();
+  let protoId: string;
+
+  if (!proto.id) {
+    const { data, error } = await supabase
+      .from("protocolos")
+      .insert({ aluno_id: alunoId, rascunho: proto.rascunho ?? false })
+      .select("id")
+      .single();
+    if (error) throw error;
+    protoId = data.id;
+  } else {
+    const { error } = await supabase
+      .from("protocolos")
+      .update({ rascunho: proto.rascunho ?? false })
+      .eq("id", proto.id);
+    if (error) throw error;
+    protoId = proto.id;
+  }
+
+  const { error: delErr } = await supabase
+    .from("protocolo_blocos")
+    .delete()
+    .eq("protocolo_id", protoId);
+  if (delErr) throw delErr;
+
+  for (let i = 0; i < proto.blocos.length; i++) {
+    const b = proto.blocos[i];
+    const { data: bloco, error: bErr } = await supabase
+      .from("protocolo_blocos")
+      .insert({ protocolo_id: protoId, ordem: i, nome: b.nome })
+      .select("id")
+      .single();
+    if (bErr) throw bErr;
+    const rows = itensToRows(bloco.id, b.itens ?? []);
+    if (rows.length) {
+      const { error: iErr } = await supabase.from("protocolo_itens").insert(rows);
+      if (iErr) throw iErr;
+    }
+  }
+
+  const saved = await fetchProtocoloByAluno(alunoId);
+  if (!saved) throw new Error("protocolo não encontrado após salvar");
   return saved;
 }
