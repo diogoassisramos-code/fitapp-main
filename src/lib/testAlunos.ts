@@ -138,7 +138,39 @@ export function removeTestAluno(id: string): void {
   write(read().filter((a) => a.id !== id));
 }
 
-/** Link de convite que o coach envia para o aluno completar o cadastro. */
+/** Resolve um aluno de teste pelo token de convite/onboarding. */
+export function getTestAlunoByToken(token: string): TestAluno | undefined {
+  return read().find((a) => a.conviteToken === token);
+}
+
+/**
+ * Conclui o onboarding de um aluno de teste: mescla os dados informados e marca
+ * status = cadastro_completo. Chamar só em event handlers (client).
+ */
+export function completarTestAluno(
+  id: string,
+  patch: Partial<Pick<TestAluno, "email" | "telefone" | "idade" | "objetivo">>
+): void {
+  const list = read();
+  const idx = list.findIndex((a) => a.id === id);
+  if (idx < 0) return;
+  list[idx] = {
+    ...list[idx],
+    ...Object.fromEntries(
+      Object.entries(patch).filter(([, v]) => String(v ?? "").trim())
+    ),
+    status: "cadastro_completo",
+  };
+  write(list);
+}
+
+/**
+ * Link de compra/onboarding que o coach envia para o aluno. Aponta para a rota
+ * pública `/onboarding/[token]` (origin atual no cliente; caminho relativo no
+ * SSR). É por aqui que o aluno entra: dados → pagamento → senha → app.
+ */
 export function conviteUrl(token: string): string {
-  return `https://coachfit.app/convite/${token}`;
+  const base =
+    typeof window !== "undefined" ? window.location.origin : "";
+  return `${base}/onboarding/${token}`;
 }

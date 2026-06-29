@@ -32,8 +32,13 @@ export function signOut(): void {
   }
 }
 
-/** Rotas acessíveis sem sessão. */
-export const PUBLIC_PREFIXES = ["/login", "/cadastro", "/recuperar-senha"];
+/** Rotas acessíveis sem sessão. `/onboarding` é a entrada do aluno (pré-conta). */
+export const PUBLIC_PREFIXES = [
+  "/login",
+  "/cadastro",
+  "/recuperar-senha",
+  "/onboarding",
+];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some(

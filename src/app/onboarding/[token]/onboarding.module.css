@@ -1,0 +1,255 @@
+.canvas {
+  min-height: 100dvh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-4);
+  background:
+    radial-gradient(120% 50% at 50% 0%, var(--color-background-info) 0%, transparent 55%),
+    var(--color-background-secondary);
+}
+
+.card {
+  width: 100%;
+  max-width: 460px;
+  margin-top: var(--space-4);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-xl);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---------- Header ---------- */
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--petrol);
+}
+
+.brand i {
+  font-size: 20px;
+  color: var(--mint-deep);
+}
+
+.conviteDe {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+/* ---------- Stepper ---------- */
+.stepper {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  text-align: center;
+}
+
+.stepDot {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  border: 1.5px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  color: var(--color-text-tertiary);
+}
+
+.step[data-state="current"] .stepDot {
+  border-color: var(--petrol);
+  background: var(--petrol);
+  color: #fff;
+}
+
+.step[data-state="done"] .stepDot {
+  border-color: var(--mint-deep);
+  background: var(--mint-deep);
+  color: #fff;
+}
+
+.stepLabel {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.step[data-state="current"] .stepLabel {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* ---------- Corpo ---------- */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.title {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.sub {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.erro {
+  font-size: 13px;
+  color: var(--color-text-danger);
+}
+
+/* ---------- Resumo do plano ---------- */
+.resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-4);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-secondary);
+}
+
+.resumoLinha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 15px;
+  color: var(--color-text-primary);
+}
+
+.resumoLinha strong {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+.resumoMeta {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.simNota {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  justify-content: center;
+}
+
+/* ---------- PIX / aguardando ---------- */
+.pixBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pixCode {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  padding: var(--space-3);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  border: 1px dashed var(--color-border-secondary);
+  color: var(--color-text-secondary);
+}
+
+.aguardando {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-warning);
+  background: var(--color-background-warning);
+  padding: var(--space-3);
+  border-radius: var(--border-radius-md);
+}
+
+.voltar {
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: var(--space-2);
+}
+
+.voltar:hover {
+  color: var(--color-text-secondary);
+}
+
+/* ---------- Pronto / app ---------- */
+.pronto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+
+.prontoIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+  font-size: 42px;
+}
+
+.prontoTitle {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.instrucao {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  background: var(--color-background-secondary);
+  padding: var(--space-3);
+  border-radius: var(--border-radius-md);
+}

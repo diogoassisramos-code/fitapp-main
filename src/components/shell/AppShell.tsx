@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { AlunoShell } from "@/components/aluno/AlunoShell";
 import { isAuthed, isPublicPath } from "@/lib/auth";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient } from "@/utils/supabase/client";
@@ -74,6 +75,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Área administrativa da plataforma usa um shell próprio (escuro).
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     return <AdminShell>{children}</AdminShell>;
+  }
+
+  // Área do aluno (mobile) usa moldura própria, sem a sidebar do consultor.
+  if (pathname === "/aluno" || pathname.startsWith("/aluno/")) {
+    return <AlunoShell>{children}</AlunoShell>;
   }
 
   return (

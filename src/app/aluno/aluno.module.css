@@ -1,0 +1,190 @@
+/* ---------- Saudação ---------- */
+.hello {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.sub {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+/* ---------- Card principal (check-in) ---------- */
+.heroCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-radius: var(--border-radius-xl);
+  background: linear-gradient(155deg, var(--petrol) 0%, var(--petrol-deep) 100%);
+  color: #fff;
+  box-shadow: var(--shadow-pop);
+}
+
+.heroEyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mint);
+}
+
+.heroTitle {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.heroText {
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.heroCard :global(.ti) {
+  font-size: 16px;
+}
+
+/* O botão full-width herda o estilo primário; só garante respiro acima. */
+.heroCard a {
+  margin-top: var(--space-1);
+}
+
+.loading {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+  padding: var(--space-2) 0;
+}
+
+/* ---------- Cards de bloco ---------- */
+.cardLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.respostaCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-info);
+  border: 1px solid var(--color-border-tertiary);
+}
+
+.respostaTexto {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-primary);
+}
+
+/* ---------- Histórico ---------- */
+.histBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  box-shadow: var(--shadow-card);
+}
+
+.hist {
+  display: flex;
+  flex-direction: column;
+}
+
+.histRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.histRow:first-child {
+  border-top: 0;
+}
+
+.histSemana {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--petrol);
+}
+
+.histMeta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 1px;
+}
+
+.histMeta strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.histData {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+/* ---------- Nota protótipo ---------- */
+.protoNote {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  justify-content: center;
+}
+
+.protoLink {
+  color: var(--color-text-info);
+  font-weight: 600;
+}
+
+.protoLink:hover {
+  text-decoration: underline;
+}

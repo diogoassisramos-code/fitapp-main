@@ -85,7 +85,10 @@ export default function ResumoPage() {
   const triagem = [
     {
       key: "checkin",
-      valor: stats.checkinsParaResponder,
+      // Com Supabase, conta os check-ins pendentes reais dos alunos carregados.
+      valor: supabaseEnabled
+        ? alunos.filter((a) => a.checkinPendente).length
+        : stats.checkinsParaResponder,
       icon: "message-circle",
       label: "Check-ins pra responder",
       tone: "info" as const,

@@ -1,10 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/shell/AppShell";
 
 export const metadata: Metadata = {
   title: "CoachFit — Dashboard do Consultor",
   description: "Dashboard web do prestador de consultoria fitness.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "CoachFit", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#004860",
 };
 
 export default function RootLayout({

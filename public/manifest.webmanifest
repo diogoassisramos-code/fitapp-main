@@ -1,0 +1,19 @@
+{
+  "name": "CoachFit — Área do Aluno",
+  "short_name": "CoachFit",
+  "description": "Seu treino, dieta e check-ins com seu treinador.",
+  "start_url": "/aluno",
+  "scope": "/aluno",
+  "display": "standalone",
+  "background_color": "#f4f8f7",
+  "theme_color": "#004860",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

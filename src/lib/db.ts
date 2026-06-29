@@ -15,6 +15,8 @@ import type {
   Protocolo,
   ProtocoloBloco,
   ProtocoloItem,
+  CheckIn,
+  FotoCheckin,
 } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -152,16 +154,102 @@ export async function adminListConsultorias(): Promise<AdminConsultoria[]> {
   }));
 }
 
-/** Vincula/troca o treinador do aluno (= define a consultoria). */
+/**
+ * Troca o treinador do aluno. Modelo membership: a RPC `trocar_consultor` fecha
+ * o vínculo atual e abre um novo, PRESERVANDO o histórico (sem reescrever dados).
+ * Fallback pré-migration: enquanto `schema_membership.sql` não rodou, faz o
+ * UPDATE direto antigo (que após a migration falha — coluna read-only).
+ */
 export async function adminSetAlunoConsultoria(
   alunoId: string,
   consultoriaId: string
 ): Promise<void> {
   const supabase = createClient();
-  const { error } = await supabase
+  const { error } = await supabase.rpc("trocar_consultor", {
+    p_aluno: alunoId,
+    p_nova_consultoria: consultoriaId,
+  });
+  if (!error) return;
+  // PGRST202 = função inexistente (migration ainda não rodou) → fallback.
+  const semRpc =
+    (error as { code?: string }).code === "PGRST202" ||
+    /trocar_consultor/i.test(error.message ?? "");
+  if (!semRpc) throw error;
+  const { error: e2 } = await supabase
     .from("alunos")
     .update({ consultoria_id: consultoriaId })
     .eq("id", alunoId);
+  if (e2) throw e2;
+}
+
+// ── Vínculo (membership) aluno↔consultoria — pareia schema_membership.sql ────
+
+export type Vinculo = {
+  id: string;
+  alunoId: string;
+  consultoriaId: string;
+  status: "ativa" | "encerrada" | "cancelada";
+  inicio: string;
+  fim: string | null;
+  canceladoEm: string | null;
+  motivoCancelamento: string | null;
+};
+
+function mapVinculo(r: any): Vinculo {
+  return {
+    id: r.id,
+    alunoId: r.aluno_id,
+    consultoriaId: r.consultoria_id,
+    status: r.status,
+    inicio: r.inicio ?? "",
+    fim: r.fim ?? null,
+    canceladoEm: r.cancelado_em ?? null,
+    motivoCancelamento: r.motivo_cancelamento ?? null,
+  };
+}
+
+/** Vínculo ativo do aluno (ou null). */
+export async function fetchVinculoAtivo(alunoId: string): Promise<Vinculo | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("aluno_consultoria")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .eq("status", "ativa")
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapVinculo(data) : null;
+}
+
+/** Histórico de vínculos do aluno (RLS filtra o que o usuário pode ver). */
+export async function fetchVinculosDoAluno(alunoId: string): Promise<Vinculo[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("aluno_consultoria")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .order("inicio", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapVinculo);
+}
+
+/** (Re)abre um vínculo para um aluno existente (anti-takeover na RPC). */
+export async function vincularAluno(alunoId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("vincular_aluno", { p_aluno: alunoId });
+  if (error) throw error;
+}
+
+/** Cancela o acompanhamento (fim de ciclo: acesso até o vencimento; mantém conta). */
+export async function cancelarVinculo(
+  alunoId: string,
+  motivo?: string
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("cancelar_vinculo", {
+    p_aluno: alunoId,
+    p_motivo: motivo ?? null,
+  });
   if (error) throw error;
 }
 
@@ -579,4 +667,132 @@ export async function saveProtocolo(
   const saved = await fetchProtocoloByAluno(alunoId);
   if (!saved) throw new Error("protocolo não encontrado após salvar");
   return saved;
+}
+
+// ── Check-in ─────────────────────────────────────────────────────────────────
+function mapCheckin(r: any): CheckIn {
+  return {
+    id: r.id,
+    alunoId: r.aluno_id,
+    semana: r.semana ?? 0,
+    // enviado_em é timestamptz; o app exibe data-only (YYYY-MM-DD).
+    enviadoEm: String(r.enviado_em ?? r.created_at ?? "").slice(0, 10),
+    peso: Number(r.peso ?? 0),
+    fotos: Array.isArray(r.fotos) ? (r.fotos as FotoCheckin[]) : [],
+    avaliacoes: {
+      energia: r.energia ?? 0,
+      sono: r.sono ?? 0,
+      dieta: r.dieta ?? 0,
+    },
+    treinosFeitos: r.treinos_feitos ?? 0,
+    treinosTotais: r.treinos_totais ?? 0,
+    comentario: r.comentario ?? "",
+    respostaCoach: r.resposta_coach ?? undefined,
+    status: r.status === "respondido" ? "respondido" : "pendente",
+  };
+}
+
+/** Check-ins de um aluno, ordenados por semana (mais antiga primeiro). */
+export async function fetchCheckinsByAluno(alunoId: string): Promise<CheckIn[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("checkins")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .order("semana");
+  if (error) throw error;
+  return (data ?? []).map(mapCheckin);
+}
+
+/** Busca um check-in específico (aluno + semana). */
+export async function fetchCheckinBySemana(
+  alunoId: string,
+  semana: number
+): Promise<CheckIn | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("checkins")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .eq("semana", semana)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapCheckin(data) : null;
+}
+
+export type NovoCheckinInput = {
+  semana?: number; // se ausente, = última semana + 1
+  peso?: number;
+  fotos?: FotoCheckin[];
+  energia: number;
+  sono: number;
+  dieta: number;
+  treinosFeitos: number;
+  treinosTotais: number;
+  comentario?: string;
+};
+
+/**
+ * Envia o check-in da semana (lado do ALUNO). consultoria_id vem por trigger.
+ * Se `semana` não for informado, usa a próxima após o último check-in do aluno.
+ */
+export async function saveCheckin(
+  alunoId: string,
+  input: NovoCheckinInput
+): Promise<CheckIn> {
+  const supabase = createClient();
+  let semana = input.semana;
+  if (!semana) {
+    const existentes = await fetchCheckinsByAluno(alunoId);
+    semana = existentes.length
+      ? Math.max(...existentes.map((c) => c.semana)) + 1
+      : 1;
+  }
+  const { data, error } = await supabase
+    .from("checkins")
+    .insert({
+      aluno_id: alunoId,
+      semana,
+      peso: input.peso ?? null,
+      fotos: input.fotos ?? [],
+      energia: input.energia,
+      sono: input.sono,
+      dieta: input.dieta,
+      treinos_feitos: input.treinosFeitos,
+      treinos_totais: input.treinosTotais,
+      comentario: input.comentario || null,
+      status: "pendente",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapCheckin(data);
+}
+
+/** Consultor responde ao check-in (UPDATE de resposta + status). */
+export async function responderCheckin(
+  checkinId: string,
+  resposta: string
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("checkins")
+    .update({ resposta_coach: resposta, status: "respondido" })
+    .eq("id", checkinId);
+  if (error) throw error;
+}
+
+/** aluno_id do usuário logado (quando o perfil é do tipo aluno). */
+export async function getMyAlunoId(): Promise<string | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("aluno_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  return data?.aluno_id ?? null;
 }

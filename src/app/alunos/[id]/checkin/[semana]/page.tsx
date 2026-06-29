@@ -1,8 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
-import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/PageHeader";
+import { use, useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -15,9 +13,16 @@ import {
   Modal,
   EmptyState,
 } from "@/components/ui";
-import { getAluno, getCheckin, getCheckins } from "@/lib/data";
+import { PageHeader } from "@/components/PageHeader";
+import { getAluno } from "@/lib/data";
+import { fetchAluno } from "@/lib/db";
+import {
+  resolveCheckinsConsultor,
+  responderConsultor,
+} from "@/lib/checkinsClient";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { dataLonga } from "@/lib/format";
-import type { FotoCheckin } from "@/lib/types";
+import type { CheckIn, FotoCheckin } from "@/lib/types";
 import styles from "./checkin.module.css";
 
 export default function RevisaoCheckinPage({
@@ -27,16 +32,78 @@ export default function RevisaoCheckinPage({
 }) {
   const { id, semana } = use(params);
   const semanaNum = Number(semana);
-  const checkin = getCheckin(id, semanaNum);
-  const aluno = getAluno(id);
 
-  if (!checkin || !aluno) notFound();
+  const [nome, setNome] = useState<string>(() => getAluno(id)?.nome ?? "");
+  const [historico, setHistorico] = useState<CheckIn[] | null>(null);
+  const [fromDb, setFromDb] = useState(false);
 
   const [resposta, setResposta] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [respondido, setRespondido] = useState(false);
   const [fotoAtiva, setFotoAtiva] = useState<FotoCheckin | null>(null);
   const [comparando, setComparando] = useState(false);
 
-  const historico = getCheckins(id);
+  // Carrega histórico (banco para aluno real; mock/local para seed/protótipo).
+  useEffect(() => {
+    let active = true;
+    resolveCheckinsConsultor(id)
+      .then(({ checkins, fromDb }) => {
+        if (!active) return;
+        setHistorico(checkins);
+        setFromDb(fromDb);
+        const atual = checkins.find((c) => c.semana === semanaNum);
+        if (atual?.respostaCoach) setResposta(atual.respostaCoach);
+        if (atual?.status === "respondido") setRespondido(true);
+      })
+      .catch(() => active && setHistorico([]));
+    return () => {
+      active = false;
+    };
+  }, [id, semanaNum]);
+
+  // Nome do aluno (banco) quando não é seeded.
+  useEffect(() => {
+    if (nome || !supabaseEnabled) return;
+    let active = true;
+    fetchAluno(id)
+      .then((a) => active && a && setNome(a.nome))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [id, nome]);
+
+  if (historico === null) {
+    return (
+      <div className={styles.page}>
+        <PageHeader eyebrow="Revisão de check-in" title="Carregando…" />
+      </div>
+    );
+  }
+
+  const checkin = historico.find((c) => c.semana === semanaNum);
+
+  if (!checkin) {
+    return (
+      <div className={styles.page}>
+        <PageHeader
+          eyebrow="Revisão de check-in"
+          title={nome || "Aluno"}
+          actions={
+            <Button variant="ghost" icon="arrow-left" href={`/alunos/${id}`}>
+              Voltar à ficha
+            </Button>
+          }
+        />
+        <EmptyState
+          icon="clipboard-off"
+          title="Check-in não encontrado"
+          description={`Não há check-in da semana ${semanaNum} para este aluno.`}
+        />
+      </div>
+    );
+  }
+
   const anterior = historico.find((c) => c.semana === semanaNum - 1);
   const deltaPeso =
     anterior !== undefined
@@ -58,20 +125,41 @@ export default function RevisaoCheckinPage({
   const fotos = checkin.fotos;
   const fotosSemana1 = historico.find((c) => c.semana === 1)?.fotos ?? [];
 
-  // Ângulos presentes em qualquer das duas semanas, preservando ordem.
   const angulosComparacao: string[] = [];
   for (const f of [...fotosSemana1, ...fotos]) {
     if (!angulosComparacao.includes(f.angulo)) angulosComparacao.push(f.angulo);
+  }
+
+  async function enviarResposta() {
+    if (!resposta.trim() || !checkin) return;
+    setEnviando(true);
+    try {
+      await responderConsultor(checkin, fromDb, resposta.trim());
+      setRespondido(true);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e);
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
     <div className={styles.page}>
       <PageHeader
         eyebrow="Revisão de check-in"
-        title={`${aluno.nome} · Check-in`}
+        title={`${nome || "Aluno"} · Check-in`}
         subtitle={
-          <StatusBadge variant="new" icon="calendar-week" noDot>
-            {`Semana ${checkin.semana} · enviado ${dataLonga(checkin.enviadoEm)}`}
+          <StatusBadge
+            variant={respondido ? "ok" : "new"}
+            icon={respondido ? "check" : "calendar-week"}
+            noDot
+          >
+            {respondido
+              ? `Semana ${checkin.semana} · respondido`
+              : `Semana ${checkin.semana} · enviado ${dataLonga(
+                  checkin.enviadoEm
+                )}`}
           </StatusBadge>
         }
         actions={
@@ -150,6 +238,7 @@ export default function RevisaoCheckinPage({
                   onClick={() => setFotoAtiva(f)}
                 >
                   <span className={styles.fotoThumb}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={f.url} alt={f.angulo} loading="lazy" />
                   </span>
                   <span className={styles.fotoLabel}>{f.angulo}</span>
@@ -167,6 +256,7 @@ export default function RevisaoCheckinPage({
       >
         {fotoAtiva && (
           <div className={styles.lightbox}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               className={styles.lightboxImg}
               src={fotoAtiva.url}
@@ -205,6 +295,7 @@ export default function RevisaoCheckinPage({
                     <figure className={styles.compararItem}>
                       <span className={styles.compararLabel}>Semana 1</span>
                       {a ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={a.url} alt={`${angulo} · Semana 1`} />
                       ) : (
                         <span className={styles.compararVazio}>—</span>
@@ -215,6 +306,7 @@ export default function RevisaoCheckinPage({
                         Semana {checkin.semana}
                       </span>
                       {b ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={b.url}
                           alt={`${angulo} · Semana ${checkin.semana}`}
@@ -249,47 +341,61 @@ export default function RevisaoCheckinPage({
                   {[1, 2, 3, 4, 5].map((n) => (
                     <span
                       key={n}
-                      className={
-                        n <= item.nota ? styles.dotOn : styles.dotOff
-                      }
+                      className={n <= item.nota ? styles.dotOn : styles.dotOff}
                     />
                   ))}
                 </span>
               </div>
             ))}
           </div>
-          <blockquote className={styles.quote}>
-            <i className="ti ti-quote" aria-hidden />
-            <p>{checkin.comentario}</p>
-          </blockquote>
+          {checkin.comentario && (
+            <blockquote className={styles.quote}>
+              <i className="ti ti-quote" aria-hidden />
+              <p>{checkin.comentario}</p>
+            </blockquote>
+          )}
         </CardBody>
       </Card>
 
       <Card>
-        <CardHeader title="Sua resposta" />
+        <CardHeader
+          title="Sua resposta"
+          action={
+            respondido ? (
+              <StatusBadge variant="ok" icon="check" noDot>
+                Enviada
+              </StatusBadge>
+            ) : undefined
+          }
+        />
         <CardBody>
           <Textarea
             placeholder="Escreva o feedback da semana…"
             maxLength={500}
             value={resposta}
-            onChange={(e) => setResposta(e.target.value)}
+            onChange={(e) => {
+              setResposta(e.target.value);
+              if (respondido) setRespondido(false);
+            }}
           />
           <div className={styles.actions}>
-            <Button
-              variant="outline"
-              icon="barbell"
-              href={`/alunos/${id}/treino`}
-            >
+            <Button variant="outline" icon="barbell" href={`/alunos/${id}/treino`}>
               Ajustar treino
             </Button>
-            <Button
-              variant="outline"
-              icon="salad"
-              href={`/alunos/${id}/dieta`}
-            >
+            <Button variant="outline" icon="salad" href={`/alunos/${id}/dieta`}>
               Ajustar dieta
             </Button>
-            <Button icon="send">Enviar resposta</Button>
+            <Button
+              icon="send"
+              onClick={enviarResposta}
+              disabled={enviando || !resposta.trim()}
+            >
+              {enviando
+                ? "Enviando…"
+                : respondido
+                ? "Resposta enviada"
+                : "Enviar resposta"}
+            </Button>
           </div>
         </CardBody>
       </Card>

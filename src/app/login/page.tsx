@@ -26,12 +26,26 @@ export default function LoginPage() {
         email,
         password: senha,
       });
-      setCarregando(false);
       if (error) {
+        setCarregando(false);
         setErro("E-mail ou senha inválidos.");
         return;
       }
-      router.push("/");
+      // Alunos vão para a área do aluno; consultor/admin para o painel.
+      let destino = "/";
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (prof?.role === "aluno") destino = "/aluno";
+      }
+      setCarregando(false);
+      router.push(destino);
       router.refresh();
       return;
     }

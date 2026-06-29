@@ -1,0 +1,323 @@
+/* ---------- Header ---------- */
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.back:hover {
+  background: var(--color-background-secondary);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.title {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+/* ---------- Seções ---------- */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  box-shadow: var(--shadow-card);
+}
+
+.sectionTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.sectionTitle i {
+  font-size: 18px;
+  color: var(--mint-deep);
+}
+
+.sectionHint {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  margin-top: -4px;
+}
+
+/* ---------- Fotos ---------- */
+.fotos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+.fotoSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.fotoAdd,
+.fotoImg {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--border-radius-md);
+  object-fit: cover;
+}
+
+.fotoAdd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  color: var(--color-text-tertiary);
+  font-size: 22px;
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+.fotoAdd:hover {
+  border-color: var(--mint-deep);
+  color: var(--mint-deep);
+}
+
+.fotoImg {
+  border: 1px solid var(--color-border-tertiary);
+}
+
+.fotoRemove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(2, 33, 40, 0.7);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.fotoAngulo {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+/* ---------- Avaliações ---------- */
+.avaliacoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.avalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.avalLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.avalLabel i {
+  font-size: 16px;
+  color: var(--color-text-tertiary);
+}
+
+.notas {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.notaOn,
+.notaOff {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--border-radius-md);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition),
+    border-color var(--transition);
+}
+
+.notaOff {
+  border: 1px solid var(--color-border-tertiary);
+  background: var(--color-background-primary);
+  color: var(--color-text-tertiary);
+}
+
+.notaOn {
+  border: 1px solid var(--mint-deep);
+  background: var(--mint-deep);
+  color: #fff;
+}
+
+/* ---------- Treinos ---------- */
+.treinos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.treinoCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.treinoLabel {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-tertiary);
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stepper button {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--petrol);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.stepper button:hover:not(:disabled) {
+  background: var(--color-background-info);
+}
+
+.stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stepperValor {
+  min-width: 32px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* ---------- Erro / submit ---------- */
+.erro {
+  font-size: 13px;
+  color: var(--color-text-danger);
+  text-align: center;
+}
+
+.submitBar {
+  position: sticky;
+  bottom: 0;
+  padding: var(--space-3) 0 var(--space-2);
+  background: linear-gradient(
+    to top,
+    var(--color-background-secondary) 60%,
+    transparent
+  );
+}
+
+/* ---------- Sucesso ---------- */
+.sucesso {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.sucessoIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+  font-size: 40px;
+}
+
+.sucessoTitle {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.sucessoText {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  max-width: 320px;
+}
+
+.sucesso :global(a) {
+  margin-top: var(--space-3);
+  width: 100%;
+}
