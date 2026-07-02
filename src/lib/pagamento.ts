@@ -1,5 +1,5 @@
 // ============================================================
-// CoachFit — Abstração de pagamento (PagamentoProvider).
+// Revo — Abstração de pagamento (PagamentoProvider).
 //
 // O fluxo de compra/onboarding fala SÓ com esta interface. Hoje roda atrás de
 // uma implementação SIMULADA (sem cobrar de verdade), para destravar todo o
@@ -51,7 +51,7 @@ export interface PagamentoProvider {
 function gerarPix(valor: number): string {
   // String fake só para a UX de copia-e-cola; não é um BR Code válido.
   const cents = Math.round(valor * 100);
-  return `00020126COACHFIT5204000053039865802BR5910CoachFit6009SaoPaulo62070503***6304${cents}`;
+  return `00020126REVO5204000053039865802BR5910Revo6009SaoPaulo62070503***6304${cents}`;
 }
 
 class PagamentoSimulado implements PagamentoProvider {

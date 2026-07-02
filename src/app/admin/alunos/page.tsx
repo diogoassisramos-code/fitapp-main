@@ -186,7 +186,7 @@ export default function AlunosPlataformaPage() {
           <Input label="Objetivo" placeholder="Ex.: Hipertrofia" />
           <Input
             label="Consultoria"
-            placeholder="Ex.: CoachFit"
+            placeholder="Ex.: Revo"
             hint="Protótipo — o cadastro não é persistido."
           />
         </div>

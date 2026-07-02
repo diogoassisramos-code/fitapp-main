@@ -1,5 +1,5 @@
 // ============================================================
-// CoachFit — Alunos de TESTE do modelo experimental.
+// Revo — Alunos de TESTE do modelo experimental.
 // Persistidos no localStorage (sem backend). Limite sistêmico de 3.
 // As funções de escrita rodam só em event handlers (client).
 // Componentes devem LER via useEffect para evitar mismatch de hidratação.
@@ -24,7 +24,7 @@ export type TestAluno = {
 /** Limite sistêmico de alunos de teste no modelo experimental. */
 export const LIMITE_ALUNOS_TESTE = 3;
 
-const STORAGE_KEY = "coachfit:test-alunos";
+const STORAGE_KEY = "revo:test-alunos";
 
 function read(): TestAluno[] {
   if (typeof window === "undefined") return [];

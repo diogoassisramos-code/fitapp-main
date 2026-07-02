@@ -106,7 +106,7 @@ export default function ConfiguracoesPage() {
   const [registro, setRegistro] = useState(coach.conselho.numero);
 
   // conta
-  const [email, setEmail] = useState("rafael@coachfit.app");
+  const [email, setEmail] = useState("rafael@revo.app");
   const [telefone, setTelefone] = useState("(11) 98888-1234");
 
   // recebimento

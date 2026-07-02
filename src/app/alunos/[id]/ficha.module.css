@@ -231,6 +231,12 @@
   flex-shrink: 0;
 }
 
+.checkinQuote span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .checkinAction {
   display: flex;
 }

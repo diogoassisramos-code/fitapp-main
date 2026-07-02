@@ -62,7 +62,6 @@ export default function DietaPage({
   const [refeicoes, setRefeicoes] = useState<Refeicao[]>(
     dieta?.refeicoes ?? []
   );
-  const [metaKcal, setMetaKcal] = useState(dieta?.metaKcal ?? 2000);
   const [salvando, setSalvando] = useState(false);
   const [erroSalvar, setErroSalvar] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
@@ -75,7 +74,6 @@ export default function DietaPage({
       .then((d) => {
         if (!vivo || !d) return;
         setDietaId(d.id);
-        setMetaKcal(d.metaKcal);
         setRefeicoes(d.refeicoes.map((r) => ({ ...r })));
       })
       .catch(() => {});
@@ -91,7 +89,8 @@ export default function DietaPage({
     try {
       const saved = await saveDieta(id, {
         id: dietaId,
-        metaKcal,
+        // A meta de calorias É a soma das refeições do plano (não um valor solto).
+        metaKcal: totalKcal,
         rascunho: false,
         refeicoes,
       });
@@ -329,9 +328,7 @@ export default function DietaPage({
           <span className={styles.metaKcal}>
             <i className="ti ti-flame" aria-hidden />
             <strong>{brlNumber(totalKcal).replace(/,\d+$/, "")}</strong>
-            <span className={styles.metaSep}>
-              / {metaKcal.toLocaleString("pt-BR")} kcal
-            </span>
+            <span className={styles.metaSep}>kcal · soma das refeições</span>
           </span>
         }
         actions={

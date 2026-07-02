@@ -39,15 +39,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     // Modo Supabase: sessão real + redireciona no logout.
     const supabase = createClient();
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      if (!data.session) {
-        setReady(false);
-        router.replace("/login");
-      } else {
+    let settled = false;
+    // Se a sessão não resolver em 6s (Supabase dormindo/cold-start/522),
+    // renderiza o chrome em vez de ficar em branco; os dados carregam quando
+    // o Supabase voltar (ou o onAuthStateChange corrige).
+    const fallbackTimer = setTimeout(() => {
+      if (active && !settled) {
+        settled = true;
         setReady(true);
       }
-    });
+    }, 6000);
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active || settled) return;
+        settled = true;
+        clearTimeout(fallbackTimer);
+        if (!data.session) {
+          setReady(false);
+          router.replace("/login");
+        } else {
+          setReady(true);
+        }
+      })
+      .catch(() => {
+        // Supabase indisponível: não deixa a rejeição virar overlay e renderiza.
+        if (active && !settled) {
+          settled = true;
+          clearTimeout(fallbackTimer);
+          setReady(true);
+        }
+      });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (!session) {
         setReady(false);
@@ -58,6 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
     return () => {
       active = false;
+      clearTimeout(fallbackTimer);
       sub.subscription.unsubscribe();
     };
   }, [pathname, fullscreen, router]);

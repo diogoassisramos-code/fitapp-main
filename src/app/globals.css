@@ -1,12 +1,13 @@
 /* ============================================================
-   CoachFit — Design tokens (§1)
+   Revo — Design tokens (§1)
    Tema claro. Trocar os valores aqui habilita dark mode.
    ============================================================ */
 :root {
-  /* ---- CoachFit Design System (petrol + mint, superfícies ice) ---- */
+  /* ---- Revo Design System (petrol + mint, superfícies ice) ---- */
   /* Marca */
   --petrol-deep: #022128;
   --petrol: #004860;
+  --revo-green: #04453d; /* verde da marca Revo — sidebar do consultor */
   --mint: #7cd3bb;
   --mint-deep: #2f8f74;
   --lilac: #6a6dc0;

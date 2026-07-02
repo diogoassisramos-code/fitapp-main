@@ -16,7 +16,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
 ];
 
 export const ADMIN_USER = {
-  nome: "Admin CoachFit",
-  email: "admin@coachfit.app",
+  nome: "Admin Revo",
+  email: "admin@revo.app",
   iniciais: "AD",
 };

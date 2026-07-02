@@ -16,10 +16,11 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     <div className={styles.wrap}>
       <aside className={styles.brand}>
         <Link href="/" className={styles.logo}>
-          <span className={styles.logoMark}>
-            <i className="ti ti-barbell" aria-hidden />
-          </span>
-          <span className={styles.logoText}>CoachFit</span>
+          <img
+            src="/revo-logo.svg"
+            alt="Revo"
+            className={`${styles.wordmark} ${styles.wordmarkLight}`}
+          />
         </Link>
 
         <div className={styles.brandBody}>
@@ -43,16 +44,13 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           </ul>
         </div>
 
-        <p className={styles.brandFoot}>CoachFit · Dashboard do consultor</p>
+        <p className={styles.brandFoot}>Revo · Dashboard do consultor</p>
       </aside>
 
       <main className={styles.panel}>
         {/* Logo compacto para mobile (painel de marca fica escondido) */}
         <Link href="/" className={styles.logoMobile}>
-          <span className={styles.logoMark}>
-            <i className="ti ti-barbell" aria-hidden />
-          </span>
-          <span className={styles.logoText}>CoachFit</span>
+          <img src="/revo-logo.svg" alt="Revo" className={styles.wordmark} />
         </Link>
 
         <div className={styles.content}>{children}</div>

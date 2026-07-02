@@ -166,6 +166,28 @@ async function fetchAlunoFromDb(id: string): Promise<Aluno | undefined> {
     aderenciaTreino: data.aderencia_treino ?? 0,
     checkinPendente: !!data.checkin_pendente,
     aguardandoProtocolo: !!data.aguardando_protocolo,
+    checkinSolicitado: !!data.checkin_solicitado,
+    checkinSolicitacaoMsg: data.checkin_solicitacao_msg ?? undefined,
+  };
+}
+
+/** Último check-in do aluno no Supabase (pra o hero refletir peso/aderência). */
+async function fetchUltimoCheckinFromDb(
+  alunoId: string
+): Promise<{ peso: number; treinosFeitos: number; treinosTotais: number } | null> {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase
+    .from("checkins")
+    .select("peso,treinos_feitos,treinos_totais")
+    .eq("aluno_id", alunoId)
+    .order("semana", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    peso: Number(data.peso ?? 0),
+    treinosFeitos: data.treinos_feitos ?? 0,
+    treinosTotais: data.treinos_totais ?? 0,
   };
 }
 
@@ -187,6 +209,21 @@ export default async function FichaAlunoPage({
   // Aluno do banco (criado pelo consultor) quando não é seeded.
   if (!aluno && supabaseEnabled) aluno = await fetchAlunoFromDb(id);
   if (!aluno) return <TestAlunoFicha id={id} />;
+
+  // Peso atual e aderência refletem o último check-in enviado (se houver).
+  if (supabaseEnabled) {
+    const ult = await fetchUltimoCheckinFromDb(aluno.id);
+    if (ult) {
+      aluno = {
+        ...aluno,
+        pesoAtual: ult.peso || aluno.pesoAtual,
+        aderenciaTreino:
+          ult.treinosTotais > 0
+            ? Math.round((ult.treinosFeitos / ult.treinosTotais) * 100)
+            : aluno.aderenciaTreino,
+      };
+    }
+  }
 
   const status = STATUS_PAGAMENTO[aluno.statusPagamento];
   const plano = getPlano(aluno.planoId);
@@ -314,7 +351,13 @@ export default async function FichaAlunoPage({
             </div>
             <span className="mono-label">Dieta</span>
             <p className={styles.protoName}>
-              {dieta ? `${dieta.metaKcal} kcal` : "Ainda não montada"}
+              {dieta
+                ? `${dieta.refeicoes.reduce(
+                    (s, r) =>
+                      s + r.alimentos.reduce((x, a) => x + a.macros.kcal, 0),
+                    0
+                  )} kcal`
+                : "Ainda não montada"}
             </p>
             <p className={styles.protoMeta}>
               {dieta
@@ -361,7 +404,11 @@ export default async function FichaAlunoPage({
         </div>
       </section>
 
-      <FichaCheckins alunoId={aluno.id} />
+      <FichaCheckins
+        alunoId={aluno.id}
+        checkinSolicitado={aluno.checkinSolicitado}
+        checkinSolicitacaoMsg={aluno.checkinSolicitacaoMsg}
+      />
 
       {/* 5) + 6) Pagamento e Conversa lado a lado */}
       <div className={styles.bottomGrid}>

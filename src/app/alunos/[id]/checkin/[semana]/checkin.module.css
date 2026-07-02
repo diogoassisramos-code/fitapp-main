@@ -261,10 +261,13 @@
 
 .quote p {
   margin: 0;
+  min-width: 0;
   font-size: 15px;
   line-height: 1.6;
   color: var(--color-text-primary);
   font-style: italic;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* ---------------- Ações da resposta ---------------- */

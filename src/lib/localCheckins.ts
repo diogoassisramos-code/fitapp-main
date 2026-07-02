@@ -1,5 +1,5 @@
 // ============================================================
-// CoachFit — Check-ins de PROTÓTIPO (sem backend / sem login de aluno).
+// Revo — Check-ins de PROTÓTIPO (sem backend / sem login de aluno).
 // Persistidos no localStorage. Servem para demonstrar o fluxo ponta a ponta
 // (aluno envia → consultor recebe/responde) enquanto o login real do aluno não
 // existe. Quando há sessão real de aluno, o app usa `saveCheckin` (Supabase).
@@ -12,8 +12,8 @@
 // ============================================================
 import type { CheckIn, FotoCheckin } from "./types";
 
-const KEY_ENVIOS = "coachfit:checkins";
-const KEY_RESPOSTAS = "coachfit:checkin-respostas";
+const KEY_ENVIOS = "revo:checkins";
+const KEY_RESPOSTAS = "revo:checkin-respostas";
 
 type RespostaOverride = { resposta: string };
 

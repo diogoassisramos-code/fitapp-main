@@ -13,6 +13,7 @@ import {
 import { resolveCheckinsConsultor } from "@/lib/checkinsClient";
 import { dataLonga } from "@/lib/format";
 import type { CheckIn } from "@/lib/types";
+import { SolicitarCheckin } from "./SolicitarCheckin";
 import styles from "./ficha.module.css";
 
 /**
@@ -20,7 +21,15 @@ import styles from "./ficha.module.css";
  * mock+localStorage para alunos de exemplo / submissões de protótipo — assim o
  * que o aluno envia aparece aqui ponta a ponta.
  */
-export function FichaCheckins({ alunoId }: { alunoId: string }) {
+export function FichaCheckins({
+  alunoId,
+  checkinSolicitado,
+  checkinSolicitacaoMsg,
+}: {
+  alunoId: string;
+  checkinSolicitado?: boolean;
+  checkinSolicitacaoMsg?: string;
+}) {
   const [checkins, setCheckins] = useState<CheckIn[] | null>(null);
 
   useEffect(() => {
@@ -48,8 +57,22 @@ export function FichaCheckins({ alunoId }: { alunoId: string }) {
     <>
       {/* 4) Último check-in */}
       <section className={styles.block}>
-        <div className={styles.blockHead}>
+        <div
+          className={styles.blockHead}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "var(--space-3)",
+            flexWrap: "wrap",
+          }}
+        >
           <h2 className={styles.blockTitle}>Último check-in</h2>
+          <SolicitarCheckin
+            alunoId={alunoId}
+            solicitadoInicial={checkinSolicitado}
+            msgInicial={checkinSolicitacaoMsg}
+          />
         </div>
         {checkins === null ? (
           <Card padded>

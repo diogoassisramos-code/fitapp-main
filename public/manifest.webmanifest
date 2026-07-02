@@ -1,12 +1,12 @@
 {
-  "name": "CoachFit — Área do Aluno",
-  "short_name": "CoachFit",
+  "name": "Revo — Área do Aluno",
+  "short_name": "Revo",
   "description": "Seu treino, dieta e check-ins com seu treinador.",
   "start_url": "/aluno",
   "scope": "/aluno",
   "display": "standalone",
   "background_color": "#f4f8f7",
-  "theme_color": "#004860",
+  "theme_color": "#04453d",
   "orientation": "portrait",
   "icons": [
     {

@@ -146,7 +146,12 @@ export default function OnboardingPage({
       <div className={styles.card}>
         <header className={styles.head}>
           <span className={styles.brand}>
-            <i className="ti ti-barbell" aria-hidden /> CoachFit
+            <img
+              src="/icon.svg"
+              alt=""
+              style={{ width: 22, height: 22, borderRadius: 5, display: "block" }}
+            />{" "}
+            Revo
           </span>
           {passo !== "pronto" && (
             <span className={styles.conviteDe}>Convite de {consultorNome}</span>

@@ -1,5 +1,5 @@
 // ============================================================
-// CoachFit — PAINEL ADMIN da plataforma (persona super-admin).
+// Revo — PAINEL ADMIN da plataforma (persona super-admin).
 // Visão da plataforma sobre TODAS as consultorias (≠ dashboard do consultor).
 // Dados mock. Datas absolutas relativas a 2026-06-21.
 // ============================================================
@@ -117,7 +117,7 @@ export const planosPlataforma: PlanoPlataforma[] = [
 ];
 
 export const consultorias: Consultoria[] = [
-  { id: "c1", consultor: "Rafael Mendes", nomeNegocio: "CoachFit", email: "rafael@coachfit.app", telefone: "(11) 98888-1234", conselho: "CREF 123456-G/SP", cidade: "São Paulo, SP", planoPlataformaId: "pp2", status: "ativo", alunosAtivos: 38, mrr: 99, faturamentoMensal: 12480, criadoEm: "2026-01-08" },
+  { id: "c1", consultor: "Rafael Mendes", nomeNegocio: "Revo", email: "rafael@revo.app", telefone: "(11) 98888-1234", conselho: "CREF 123456-G/SP", cidade: "São Paulo, SP", planoPlataformaId: "pp2", status: "ativo", alunosAtivos: 38, mrr: 99, faturamentoMensal: 12480, criadoEm: "2026-01-08" },
   { id: "c2", consultor: "Ana Beatriz Lima", nomeNegocio: "FitAna", email: "ana@fitana.com.br", telefone: "(21) 97777-2233", conselho: "CREF 234567-G/RJ", cidade: "Rio de Janeiro, RJ", planoPlataformaId: "pp2", status: "ativo", alunosAtivos: 52, mrr: 99, faturamentoMensal: 16800, criadoEm: "2025-11-20" },
   { id: "c3", consultor: "Carlos Eduardo Souza", nomeNegocio: "CE Performance", email: "carlos@ceperformance.com", telefone: "(31) 96666-4455", conselho: "CREF 345678-G/MG", cidade: "Belo Horizonte, MG", planoPlataformaId: "pp3", status: "ativo", alunosAtivos: 120, mrr: 249, faturamentoMensal: 42000, criadoEm: "2025-08-15" },
   { id: "c4", consultor: "Juliana Reis", nomeNegocio: "JR Nutri & Treino", email: "ju@jrnutri.com", telefone: "(41) 95555-6677", conselho: "CRN 45678/PR", cidade: "Curitiba, PR", planoPlataformaId: "pp1", status: "trial", alunosAtivos: 12, mrr: 49, faturamentoMensal: 3600, criadoEm: "2026-06-10" },
@@ -146,7 +146,7 @@ export const assinaturas: AssinaturaPlataforma[] = consultorias.map((c, i) => ({
 }));
 
 export const alunosPlataforma: AlunoPlataforma[] = [
-  // Consultoria 1 — Rafael (CoachFit) — espelha o app do consultor
+  // Consultoria 1 — Rafael (Revo) — espelha o app do consultor
   { id: "ap1", nome: "Ana Paula Souza", consultoriaId: "c1", consultor: "Rafael Mendes", objetivo: "Hipertrofia", status: "ativo", desde: "2026-05-03", coachAlunoId: "1" },
   { id: "ap2", nome: "Bruno Lima", consultoriaId: "c1", consultor: "Rafael Mendes", objetivo: "Emagrecimento", status: "ativo", desde: "2026-04-12", coachAlunoId: "2" },
   { id: "ap3", nome: "Eduarda Nunes", consultoriaId: "c1", consultor: "Rafael Mendes", objetivo: "Emagrecimento", status: "ativo", desde: "2026-02-10", coachAlunoId: "5" },
@@ -174,7 +174,7 @@ export const alunosPlataforma: AlunoPlataforma[] = [
 ];
 
 export const transacoesPlataforma: TransacaoPlataforma[] = [
-  { id: "tp1", descricao: "Assinatura Pro — CoachFit", consultoria: "CoachFit", valor: 99, tipo: "assinatura", data: "2026-06-28", status: "aprovado" },
+  { id: "tp1", descricao: "Assinatura Pro — Revo", consultoria: "Revo", valor: 99, tipo: "assinatura", data: "2026-06-28", status: "aprovado" },
   { id: "tp2", descricao: "Assinatura Pro — FitAna", consultoria: "FitAna", valor: 99, tipo: "assinatura", data: "2026-06-20", status: "aprovado" },
   { id: "tp3", descricao: "Assinatura Enterprise — CE Performance", consultoria: "CE Performance", valor: 249, tipo: "assinatura", data: "2026-06-15", status: "aprovado" },
   { id: "tp4", descricao: "Assinatura Starter — MV Treinamento", consultoria: "MV Treinamento", valor: 49, tipo: "assinatura", data: "2026-06-18", status: "aprovado" },

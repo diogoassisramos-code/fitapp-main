@@ -5,7 +5,7 @@
  * públicas (login/cadastro/recuperar-senha) exige a flag de sessão. Será trocado
  * por auth real (backend/DB) quando a camada de dados existir.
  */
-const KEY = "coachfit_auth";
+const KEY = "revo_auth";
 
 export function isAuthed(): boolean {
   if (typeof window === "undefined") return false;

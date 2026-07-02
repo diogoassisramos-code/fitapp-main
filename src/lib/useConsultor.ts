@@ -29,29 +29,34 @@ export function useConsultor(): Consultor {
     if (!supabaseEnabled) return;
     let active = true;
     (async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || !active) return;
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("nome, consultoria_id")
-        .eq("id", user.id)
-        .maybeSingle();
-      const nome = prof?.nome || user.email || "Consultor";
-      let conselho = "";
-      if (prof?.consultoria_id) {
-        const { data: cons } = await supabase
-          .from("consultorias")
-          .select("conselho_tipo, conselho_numero")
-          .eq("id", prof.consultoria_id)
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user || !active) return;
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("nome, consultoria_id")
+          .eq("id", user.id)
           .maybeSingle();
-        if (cons?.conselho_tipo && cons?.conselho_numero) {
-          conselho = `${cons.conselho_tipo} ${cons.conselho_numero}`;
+        const nome = prof?.nome || user.email || "Consultor";
+        let conselho = "";
+        if (prof?.consultoria_id) {
+          const { data: cons } = await supabase
+            .from("consultorias")
+            .select("conselho_tipo, conselho_numero")
+            .eq("id", prof.consultoria_id)
+            .maybeSingle();
+          if (cons?.conselho_tipo && cons?.conselho_numero) {
+            conselho = `${cons.conselho_tipo} ${cons.conselho_numero}`;
+          }
         }
+        if (active) setC({ nome, iniciais: iniciaisDe(nome), conselho });
+      } catch {
+        /* Supabase indisponível (cold-start/blip de rede) — mantém o fallback,
+           sem deixar a rejeição virar overlay de erro no dev. */
       }
-      if (active) setC({ nome, iniciais: iniciaisDe(nome), conselho });
     })();
     return () => {
       active = false;

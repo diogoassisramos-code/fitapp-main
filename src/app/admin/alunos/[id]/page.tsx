@@ -206,7 +206,7 @@ export default async function AdminAlunoDetalhePage({
             compact
             icon="database-off"
             title="Sem dados detalhados"
-            description="Treino, dieta, protocolo e check-ins deste aluno não estão disponíveis nesta demonstração. Os dados completos existem para os alunos da consultoria CoachFit."
+            description="Treino, dieta, protocolo e check-ins deste aluno não estão disponíveis nesta demonstração. Os dados completos existem para os alunos da consultoria Revo."
           />
         </Card>
       )}

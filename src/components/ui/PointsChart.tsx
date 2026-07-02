@@ -17,7 +17,7 @@ import styles from "./PointsChart.module.css";
 
 /**
  * Gráfico de linha (recharts) com grid tracejado, tooltip e linhas de nível
- * com estrela. Design adaptado ao sistema de tokens do CoachFit (CSS Modules
+ * com estrela. Design adaptado ao sistema de tokens do Revo (CSS Modules
  * + variáveis CSS), sem Tailwind/shadcn.
  */
 interface PointsChartDataPoint {

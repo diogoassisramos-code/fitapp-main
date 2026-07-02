@@ -1,5 +1,5 @@
 // ============================================================
-// CoachFit — Modelo de dados (§4 do spec)
+// Revo — Modelo de dados (§4 do spec)
 // ============================================================
 
 export type StatusPagamento = "em_dia" | "pendente" | "atrasado" | "novo";
@@ -92,6 +92,9 @@ export type Aluno = {
   // flags derivadas
   checkinPendente: boolean;
   aguardandoProtocolo: boolean;
+  // solicitação de check-in feita pelo consultor (aguardando o aluno enviar)
+  checkinSolicitado?: boolean;
+  checkinSolicitacaoMsg?: string;
 };
 
 // ---------------- Treino ----------------

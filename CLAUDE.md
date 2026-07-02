@@ -1,4 +1,4 @@
-# CoachFit — Dashboard do Consultor
+# Revo — Dashboard do Consultor
 
 Dashboard web do prestador (consultoria fitness). Next.js App Router. App do aluno (mobile) é projeto separado, fora de escopo.
 

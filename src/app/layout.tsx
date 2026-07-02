@@ -3,14 +3,15 @@ import "./globals.css";
 import { AppShell } from "@/components/shell/AppShell";
 
 export const metadata: Metadata = {
-  title: "CoachFit — Dashboard do Consultor",
+  title: "Revo — Dashboard do Consultor",
   description: "Dashboard web do prestador de consultoria fitness.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "CoachFit", statusBarStyle: "default" },
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  appleWebApp: { capable: true, title: "Revo", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#004860",
+  themeColor: "#04453d",
 };
 
 export default function RootLayout({
@@ -21,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        {/* CoachFit — Hanken Grotesk (texto/display) + Space Grotesk (dados) */}
+        {/* Revo — Hanken Grotesk (texto/display) + Space Grotesk (dados) */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"

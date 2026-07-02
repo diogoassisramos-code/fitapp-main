@@ -112,7 +112,7 @@ export default function ResumoPage() {
   return (
     <>
       <PageHeader
-        eyebrow="CoachFit"
+        eyebrow="Revo"
         title={primeiroNome ? `Olá, ${primeiroNome} 👋` : "Olá 👋"}
         subtitle={
           stats.alunosAtivos +

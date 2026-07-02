@@ -37,7 +37,36 @@ function mapAluno(r: any): Aluno {
     aderenciaTreino: r.aderencia_treino ?? 0,
     checkinPendente: !!r.checkin_pendente,
     aguardandoProtocolo: !!r.aguardando_protocolo,
+    checkinSolicitado: !!r.checkin_solicitado,
+    checkinSolicitacaoMsg: r.checkin_solicitacao_msg ?? undefined,
   };
+}
+
+/** Consultor solicita um check-in ao aluno (flag + mensagem opcional). */
+export async function solicitarCheckin(
+  alunoId: string,
+  mensagem?: string
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("alunos")
+    .update({
+      checkin_solicitado: true,
+      checkin_solicitado_em: new Date().toISOString(),
+      checkin_solicitacao_msg: mensagem?.trim() || null,
+    })
+    .eq("id", alunoId);
+  if (error) throw error;
+}
+
+/** Cancela a solicitação de check-in (consultor). */
+export async function cancelarSolicitacaoCheckin(alunoId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("alunos")
+    .update({ checkin_solicitado: false, checkin_solicitacao_msg: null })
+    .eq("id", alunoId);
+  if (error) throw error;
 }
 
 function mapExercicio(r: any): Exercicio {

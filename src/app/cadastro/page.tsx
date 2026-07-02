@@ -130,7 +130,7 @@ export default function CadastroPage() {
           <Input
             label="Nome do negócio"
             icon="building-store"
-            placeholder="Ex.: CoachFit"
+            placeholder="Ex.: Revo"
             value={negocio}
             onChange={(e) => setNegocio(e.target.value)}
           />

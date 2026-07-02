@@ -3,10 +3,9 @@
   background: var(--color-background-secondary);
 }
 
-/* O conteúdo deixa só a largura do trilho à esquerda; a sidebar
-   expandida no hover sobrepõe o conteúdo (não empurra). */
+/* Sidebar sempre aberta (248px) — o conteúdo fica à direita dela. */
 .main {
-  margin-left: var(--sidebar-w-collapsed);
+  margin-left: var(--sidebar-w);
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -24,20 +23,16 @@
   display: none;
 }
 
-/* ---------- Mobile ---------- */
-@media (max-width: 880px) {
+/* ---------- Tela estreita (≤ 1380px): sidebar vira drawer ---------- */
+@media (max-width: 1380px) {
   .main {
     margin-left: 0;
-  }
-
-  .content {
-    padding: var(--space-4);
   }
 
   .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(26, 25, 22, 0.4);
+    background: rgba(2, 33, 40, 0.45);
     z-index: 40;
     opacity: 0;
     pointer-events: none;
@@ -47,5 +42,11 @@
   .shell[data-mobile-open="true"] .overlay {
     opacity: 1;
     pointer-events: auto;
+  }
+}
+
+@media (max-width: 880px) {
+  .content {
+    padding: var(--space-4);
   }
 }

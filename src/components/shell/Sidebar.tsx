@@ -35,9 +35,19 @@ export function Sidebar({
       <div className={styles.head}>
         <Link href="/" className={styles.logo} onClick={onCloseMobile}>
           <span className={styles.logoMark}>
-            <i className="ti ti-barbell" aria-hidden />
+            <img
+              src="/icon.svg"
+              alt=""
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                borderRadius: "inherit",
+                display: "block",
+              }}
+            />
           </span>
-          <span className={styles.label}>CoachFit</span>
+          <span className={styles.label}>Revo</span>
         </Link>
       </div>
 

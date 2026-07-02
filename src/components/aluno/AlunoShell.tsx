@@ -30,8 +30,12 @@ export function AlunoShell({ children }: { children: React.ReactNode }) {
       <div className={styles.phone}>
         <header className={styles.bar}>
           <span className={styles.brand}>
-            <i className="ti ti-barbell" aria-hidden />
-            CoachFit
+            <img
+              src="/icon.svg"
+              alt=""
+              style={{ width: 24, height: 24, borderRadius: 6, display: "block" }}
+            />
+            Revo
           </span>
           <button type="button" className={styles.sair} onClick={sair}>
             <i className="ti ti-logout" aria-hidden />

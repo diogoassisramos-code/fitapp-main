@@ -1,37 +1,26 @@
 /* ============================================================
-   Sidebar do consultor — trilho de ícones que EXPANDE no hover.
-   Cores claras (tema do app do consultor) preservadas.
+   Sidebar do consultor — SEMPRE ABERTA (248px), tema VERDE Revo.
+   Vira drawer retrátil só quando a tela é ≤ 1380px de largura.
    ============================================================ */
 .sidebar {
   position: fixed;
   top: 0;
   left: 0;
   bottom: 0;
-  width: var(--sidebar-w-collapsed); /* trilho 72px */
-  background: var(--color-background-primary);
-  border-right: 1px solid var(--color-border-tertiary);
+  width: var(--sidebar-w); /* 248px — sempre aberta */
+  background: var(--revo-green);
+  color: #fff;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   z-index: 50;
-  overflow: hidden; /* clipa os rótulos no trilho */
-  transition: width var(--transition), box-shadow var(--transition),
-    transform var(--transition);
+  overflow: hidden;
+  transition: transform var(--transition), box-shadow var(--transition);
 }
 
-.sidebar:hover {
-  width: var(--sidebar-w); /* 248px ao passar o mouse */
-  box-shadow: var(--shadow-pop);
-}
-
-/* Rótulos: escondidos no trilho, revelam no hover */
+/* Rótulos sempre visíveis (não há mais trilho/hover) */
 .label {
-  opacity: 0;
   white-space: nowrap;
-  transition: opacity var(--transition);
-}
-
-.sidebar:hover .label {
-  opacity: 1;
 }
 
 /* ---------- Cabeçalho / logo ---------- */
@@ -40,7 +29,7 @@
   align-items: center;
   height: var(--topbar-h);
   padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--color-border-tertiary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .logo {
@@ -48,6 +37,7 @@
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
+  color: #fff;
 }
 
 .logoMark {
@@ -57,8 +47,8 @@
   height: 32px;
   flex-shrink: 0;
   border-radius: var(--border-radius-md);
-  background: var(--color-text-info);
-  color: #fff;
+  background: transparent;
+  overflow: hidden;
   font-size: 18px;
 }
 
@@ -85,7 +75,7 @@
   height: 40px;
   padding: 0 10px;
   border-radius: var(--border-radius-md);
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.66);
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
@@ -100,13 +90,13 @@
 }
 
 .navItem:hover {
-  background: var(--color-background-secondary);
-  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .navItem[data-active="true"] {
-  background: var(--color-background-info);
-  color: var(--color-text-info);
+  background: var(--mint);
+  color: var(--petrol-deep);
 }
 
 /* ---------- Card do usuário ---------- */
@@ -129,7 +119,7 @@
 }
 
 .userCard:hover {
-  background: var(--color-background-secondary);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .avatar {
@@ -139,8 +129,8 @@
   height: 32px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: var(--color-background-tertiary);
-  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
   font-size: 12px;
   font-weight: 600;
 }
@@ -154,6 +144,7 @@
 .userName {
   font-size: 13px;
   font-weight: 600;
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -162,7 +153,7 @@
 .userConselho {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--color-text-tertiary);
+  color: rgba(255, 255, 255, 0.5);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -175,10 +166,11 @@
   height: 36px;
   flex-shrink: 0;
   border-radius: var(--border-radius-md);
-  border: 1px solid var(--color-border-tertiary);
-  color: var(--color-text-tertiary);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 19px;
-  transition: background var(--transition), color var(--transition);
+  transition: background var(--transition), color var(--transition),
+    border-color var(--transition);
 }
 
 .logout:hover {
@@ -187,20 +179,14 @@
   border-color: transparent;
 }
 
-/* ---------- Mobile (drawer) ---------- */
-@media (max-width: 880px) {
+/* ---------- Drawer retrátil (≤ 1380px) ---------- */
+@media (max-width: 1380px) {
   .sidebar {
-    width: var(--sidebar-w); /* largura cheia no mobile */
     transform: translateX(-100%);
     box-shadow: var(--shadow-pop);
   }
 
   .sidebar[data-open="true"] {
     transform: translateX(0);
-  }
-
-  /* No mobile o menu não usa hover: rótulos sempre visíveis */
-  .label {
-    opacity: 1;
   }
 }

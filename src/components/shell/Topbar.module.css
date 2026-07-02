@@ -137,14 +137,17 @@
   border: 1.5px solid var(--color-background-primary);
 }
 
+/* Sidebar vira drawer em ≤1380px → mostra o botão de menu */
+@media (max-width: 1380px) {
+  .menuBtn {
+    display: grid;
+  }
+}
+
 /* ---------- Mobile ---------- */
 @media (max-width: 880px) {
   .topbar {
     padding: 0 var(--space-4);
-  }
-
-  .menuBtn {
-    display: grid;
   }
 
   .saldo {

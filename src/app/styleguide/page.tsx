@@ -62,7 +62,7 @@ export default function StyleguidePage() {
       <PageHeader
         eyebrow="Fundação"
         title="Biblioteca de componentes"
-        subtitle="Tokens e primitivos do CoachFit. Esta página existe só para validação visual."
+        subtitle="Tokens e primitivos do Revo. Esta página existe só para validação visual."
       />
 
       <div className={styles.stack}>
@@ -93,7 +93,7 @@ export default function StyleguidePage() {
               Mono (uppercase, letter-spacing leve).
             </p>
             <p style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-              coachfit.app/p/hipertrofia-online · IBM Plex Mono
+              revo.app/p/hipertrofia-online · IBM Plex Mono
             </p>
           </div>
         </Block>

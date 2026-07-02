@@ -31,7 +31,7 @@ export default function AdminVisaoGeralPage() {
       <PageHeader
         eyebrow="Painel da plataforma"
         title="Visão geral"
-        subtitle="Saúde da plataforma CoachFit"
+        subtitle="Saúde da plataforma Revo"
         actions={
           <Button icon="plus" href="/admin/consultores/novo">
             Nova consultoria

@@ -99,7 +99,7 @@ export function ConsultorForm({ consultoria }: { consultoria?: Consultoria }) {
               <Input
                 label="Nome do negócio"
                 icon="building-store"
-                placeholder="CoachFit"
+                placeholder="Revo"
                 value={nomeNegocio}
                 onChange={(e) => setNomeNegocio(e.target.value)}
               />
@@ -107,7 +107,7 @@ export function ConsultorForm({ consultoria }: { consultoria?: Consultoria }) {
                 label="E-mail"
                 type="email"
                 icon="mail"
-                placeholder="rafael@coachfit.app"
+                placeholder="rafael@revo.app"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />

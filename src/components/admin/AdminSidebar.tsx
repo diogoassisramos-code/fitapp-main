@@ -27,10 +27,20 @@ export function AdminSidebar({
       <div className={styles.head}>
         <Link href="/admin" className={styles.logo} onClick={onCloseMobile}>
           <span className={styles.logoMark}>
-            <i className="ti ti-shield-cog" aria-hidden />
+            <img
+              src="/icon.svg"
+              alt=""
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                borderRadius: "inherit",
+                display: "block",
+              }}
+            />
           </span>
           <span className={`${styles.logoText} ${styles.label}`}>
-            CoachFit
+            Revo
             <span className={styles.logoTag}>ADMIN</span>
           </span>
         </Link>

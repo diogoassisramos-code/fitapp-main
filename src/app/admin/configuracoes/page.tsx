@@ -48,21 +48,21 @@ const ADMINS: AdminMock[] = [
   {
     id: "a1",
     nome: "Diogo Ramos",
-    email: "diogo@coachfit.com",
+    email: "diogo@revo.com",
     papel: "Owner",
     variant: "ok",
   },
   {
     id: "a2",
     nome: "Marina Costa",
-    email: "marina@coachfit.com",
+    email: "marina@revo.com",
     papel: "Admin",
     variant: "new",
   },
   {
     id: "a3",
     nome: "Lucas Prado",
-    email: "lucas@coachfit.com",
+    email: "lucas@revo.com",
     papel: "Suporte",
     variant: "off",
   },
@@ -116,9 +116,9 @@ export default function AdminConfiguracoesPage() {
   const [active, setActive] = useState("plataforma");
 
   // plataforma
-  const [nomePlataforma, setNomePlataforma] = useState("CoachFit");
-  const [dominio, setDominio] = useState("app.coachfit.com");
-  const [emailSuporte, setEmailSuporte] = useState("suporte@coachfit.com");
+  const [nomePlataforma, setNomePlataforma] = useState("Revo");
+  const [dominio, setDominio] = useState("app.revo.com");
+  const [emailSuporte, setEmailSuporte] = useState("suporte@revo.com");
 
   // cobranca
   const [gateway, setGateway] = useState("Stripe/Pagar.me");

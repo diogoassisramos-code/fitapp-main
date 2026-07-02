@@ -1,5 +1,5 @@
 // ============================================================
-// CoachFit — Dados mock + acessores.
+// Revo — Dados mock + acessores.
 // Toda tela lê daqui. Datas absolutas relativas a 2026-06-21.
 // ============================================================
 import type {
@@ -26,10 +26,10 @@ export const coach: Prestador = {
   conselho: { tipo: "CREF", numero: "123456-G/SP" },
   saldo: 4820.5,
   aLiberar: 2310.0,
-  contaSaque: { pix: "rafael@coachfit.app", banco: "Nubank", agencia: "0001", conta: "12345678-9" },
+  contaSaque: { pix: "rafael@revo.app", banco: "Nubank", agencia: "0001", conta: "12345678-9" },
   dadosFiscais: { documento: "123.456.789-00" },
   perfil: {
-    nomeNegocio: "CoachFit",
+    nomeNegocio: "Revo",
     bio: "Consultoria fitness online com foco em hipertrofia e emagrecimento.",
     especialidade: "Hipertrofia & Emagrecimento",
   },
@@ -61,7 +61,7 @@ export const planos: Plano[] = [
     checkinConfig: { frequencia: "semanal", diasSemana: [1], horario: "09:00" },
     visibilidade: { venda: true, vitrine: true, renovacao: true },
     slug: "consultoria-online-mensal",
-    linkPagamento: "https://coachfit.app/p/consultoria-online-mensal",
+    linkPagamento: "https://revo.app/p/consultoria-online-mensal",
     status: "ativo",
     assinantesAtivos: 24,
   },
@@ -81,7 +81,7 @@ export const planos: Plano[] = [
     checkinConfig: { frequencia: "semanal", diasSemana: [5], horario: "18:00" },
     visibilidade: { venda: true, vitrine: true, renovacao: true },
     slug: "acompanhamento-personal",
-    linkPagamento: "https://coachfit.app/p/acompanhamento-personal",
+    linkPagamento: "https://revo.app/p/acompanhamento-personal",
     status: "ativo",
     assinantesAtivos: 8,
   },
@@ -102,7 +102,7 @@ export const planos: Plano[] = [
     upsell: { ativo: true },
     visibilidade: { venda: true, vitrine: true, renovacao: false },
     slug: "pacote-12-semanas",
-    linkPagamento: "https://coachfit.app/p/pacote-12-semanas",
+    linkPagamento: "https://revo.app/p/pacote-12-semanas",
     status: "ativo",
     assinantesAtivos: 5,
   },
@@ -121,7 +121,7 @@ export const planos: Plano[] = [
     agendarCheckins: false,
     visibilidade: { venda: false, vitrine: false, renovacao: false },
     slug: "consulta-avulsa",
-    linkPagamento: "https://coachfit.app/p/consulta-avulsa",
+    linkPagamento: "https://revo.app/p/consulta-avulsa",
     status: "pausado",
     assinantesAtivos: 1,
   },
