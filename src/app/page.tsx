@@ -19,7 +19,7 @@ import {
 } from "@/components/ui";
 import { listAlunos, stats, planoNome } from "@/lib/data";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
-import { fetchAlunos } from "@/lib/db";
+import { fetchAlunos, fetchConsultoriaResumo } from "@/lib/db";
 import { useConsultor } from "@/lib/useConsultor";
 import type { Aluno } from "@/lib/types";
 import {
@@ -57,9 +57,38 @@ export default function ResumoPage() {
   const [alunos, setAlunos] = useState<Aluno[]>(() =>
     supabaseEnabled ? [] : listAlunos()
   );
+  const [saldo, setSaldo] = useState<number>(supabaseEnabled ? 0 : stats.saldo);
   useEffect(() => {
-    if (supabaseEnabled) fetchAlunos().then(setAlunos).catch(() => {});
+    if (!supabaseEnabled) return;
+    fetchAlunos().then(setAlunos).catch(() => {});
+    fetchConsultoriaResumo()
+      .then((r) => setSaldo(r.saldo))
+      .catch(() => {});
   }, []);
+
+  // KPIs do topo + triagem: derivados dos dados REAIS (0 numa conta nova) quando
+  // há Supabase; senão, os números do mock. Faturamento real depende da tabela
+  // de transações/gateway (ainda não existe) — por isso 0 pra conta nova.
+  const mesRef = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  })();
+  const resumo = supabaseEnabled
+    ? {
+        alunosAtivos: alunos.filter((a) => a.statusPagamento !== "novo").length,
+        totalAlunos: alunos.length,
+        novosNoMes: alunos.filter((a) => (a.inicio ?? "").startsWith(mesRef))
+          .length,
+        faturamento30d: 0,
+        faturamento30dDelta: "",
+        saldo,
+        checkinsParaResponder: alunos.filter((a) => a.checkinPendente).length,
+        pagamentosAtrasados: alunos.filter(
+          (a) => a.statusPagamento === "atrasado"
+        ).length,
+        novosSemPlano: alunos.filter((a) => a.statusPagamento === "novo").length,
+      }
+    : stats;
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -85,24 +114,21 @@ export default function ResumoPage() {
   const triagem = [
     {
       key: "checkin",
-      // Com Supabase, conta os check-ins pendentes reais dos alunos carregados.
-      valor: supabaseEnabled
-        ? alunos.filter((a) => a.checkinPendente).length
-        : stats.checkinsParaResponder,
+      valor: resumo.checkinsParaResponder,
       icon: "message-circle",
       label: "Check-ins pra responder",
       tone: "info" as const,
     },
     {
       key: "atrasados",
-      valor: stats.pagamentosAtrasados,
+      valor: resumo.pagamentosAtrasados,
       icon: "alert-triangle",
       label: "Pagamentos atrasados",
       tone: "danger" as const,
     },
     {
       key: "protocolo",
-      valor: stats.novosSemPlano,
+      valor: resumo.novosSemPlano,
       icon: "clipboard-list",
       label: "Novos sem plano",
       tone: "warning" as const,
@@ -115,9 +141,9 @@ export default function ResumoPage() {
         eyebrow="Revo"
         title={primeiroNome ? `Olá, ${primeiroNome} 👋` : "Olá 👋"}
         subtitle={
-          stats.alunosAtivos +
+          resumo.alunosAtivos +
           " alunos ativos · " +
-          brl(stats.faturamento30d) +
+          brl(resumo.faturamento30d) +
           " nos últimos 30 dias"
         }
         actions={
@@ -130,24 +156,28 @@ export default function ResumoPage() {
       <section className={styles.metrics}>
         <MetricCard
           label="Alunos ativos"
-          value={stats.alunosAtivos}
+          value={resumo.alunosAtivos}
           icon="users"
-          sub={stats.totalAlunos + " no total"}
+          sub={resumo.totalAlunos + " no total"}
         />
         <MetricCard
           label="Novos no mês"
-          value={stats.novosNoMes}
+          value={resumo.novosNoMes}
           icon="user-plus"
         />
         <MetricCard
           label="Faturamento 30d"
-          value={brl(stats.faturamento30d)}
-          delta={{ value: stats.faturamento30dDelta, dir: "up" }}
+          value={brl(resumo.faturamento30d)}
+          delta={
+            resumo.faturamento30dDelta
+              ? { value: resumo.faturamento30dDelta, dir: "up" }
+              : undefined
+          }
           icon="trending-up"
         />
         <MetricCard
           label="Saldo disponível"
-          value={brl(stats.saldo)}
+          value={brl(resumo.saldo)}
           icon="wallet"
           action={
             <Button

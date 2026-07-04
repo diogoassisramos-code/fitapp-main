@@ -102,6 +102,25 @@ export async function getMyConsultoriaId(): Promise<string | null> {
   return data?.consultoria_id ?? null;
 }
 
+/** Resumo financeiro da consultoria logada (saldo / a liberar). Zero se nova. */
+export async function fetchConsultoriaResumo(): Promise<{
+  saldo: number;
+  aLiberar: number;
+}> {
+  const supabase = createClient();
+  const cid = await getMyConsultoriaId();
+  if (!cid) return { saldo: 0, aLiberar: 0 };
+  const { data } = await supabase
+    .from("consultorias")
+    .select("saldo, a_liberar")
+    .eq("id", cid)
+    .maybeSingle();
+  return {
+    saldo: Number(data?.saldo ?? 0),
+    aLiberar: Number(data?.a_liberar ?? 0),
+  };
+}
+
 /** Cadastra um aluno na consultoria do consultor logado (RLS valida o tenant). */
 export async function createAluno(input: {
   nome: string;
