@@ -125,6 +125,211 @@
   font-weight: 500;
 }
 
+/* ---------- Planos ---------- */
+.planos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.plano {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  text-align: left;
+  background: var(--color-background-secondary);
+  border: 1.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.plano:hover {
+  border-color: var(--color-border-secondary);
+}
+
+.plano[data-selected] {
+  border-color: var(--color-text-info);
+  background: var(--color-background-info);
+}
+
+.planoTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.planoNome {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.planoPreco {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.planoMes {
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--color-text-tertiary);
+  margin-left: 2px;
+}
+
+.planoLimite {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.planoRecursos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  list-style: none;
+}
+
+.planoRecursos li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.planoRecursos i {
+  color: var(--color-text-success);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.planoBadge {
+  position: absolute;
+  top: -9px;
+  right: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--color-text-info);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* ---------- Pagamento ---------- */
+.resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-4);
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-lg);
+}
+
+.resumoLinha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 15px;
+  color: var(--color-text-primary);
+}
+
+.resumoLinha strong {
+  font-family: var(--font-mono);
+}
+
+.resumoMeta {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.pixBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pixCode {
+  display: block;
+  padding: var(--space-3);
+  background: var(--color-background-tertiary);
+  border-radius: var(--border-radius-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.aguardando {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.simNota {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.erro {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-danger);
+}
+
+.voltar {
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ---------- Pronto ---------- */
+.pronto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+}
+
+.prontoIcon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+  font-size: 32px;
+}
+
+.prontoTitle {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
 /* ---------- Mobile ---------- */
 @media (max-width: 880px) {
   .grid2 {

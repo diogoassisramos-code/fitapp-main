@@ -249,7 +249,7 @@ export default function ConfiguracoesPage() {
                   icon="user-circle"
                 />
                 <div className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>Conselho</span>
+                  <span className={styles.fieldLabel}>Conselho (opcional)</span>
                   <div className={styles.inlineRow}>
                     <Segmented
                       options={CONSELHO_OPTS}
@@ -268,7 +268,8 @@ export default function ConfiguracoesPage() {
                   </div>
                 </div>
                 <Nota>
-                  Define no futuro o que o profissional pode prescrever.
+                  Opcional — preencha quando quiser. Define no futuro o que o
+                  profissional pode prescrever.
                 </Nota>
                 <SaveBar />
               </CardBody>
