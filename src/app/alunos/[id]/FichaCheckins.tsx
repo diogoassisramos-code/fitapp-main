@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Card,
   CardBody,
@@ -31,22 +31,32 @@ export function FichaCheckins({
   checkinSolicitacaoMsg?: string;
 }) {
   const [checkins, setCheckins] = useState<CheckIn[] | null>(null);
+  const [erro, setErro] = useState(false);
 
-  useEffect(() => {
+  const carregar = useCallback(() => {
     let active = true;
+    setErro(false);
+    setCheckins(null);
     resolveCheckinsConsultor(alunoId)
       .then(({ checkins }) => active && setCheckins(checkins))
-      .catch(() => active && setCheckins([]));
+      .catch(() => {
+        if (!active) return;
+        setErro(true); // falha real: mostra erro, não "nenhum check-in"
+        setCheckins([]);
+      });
     return () => {
       active = false;
     };
   }, [alunoId]);
+
+  useEffect(() => carregar(), [carregar]);
 
   const lista = checkins ?? [];
   const checkin = lista.length ? lista[lista.length - 1] : undefined;
   const historico = [...lista].sort((a, b) => b.semana - a.semana);
   const pesoData = [...lista]
     .sort((a, b) => a.semana - b.semana)
+    .filter((c): c is CheckIn & { peso: number } => c.peso != null)
     .map((c, i, arr) => ({
       date: `S${c.semana}`,
       total: c.peso,
@@ -78,6 +88,20 @@ export function FichaCheckins({
           <Card padded>
             <EmptyState icon="loader" title="Carregando check-ins…" compact />
           </Card>
+        ) : erro ? (
+          <Card padded>
+            <EmptyState
+              icon="alert-triangle"
+              title="Não foi possível carregar os check-ins"
+              description="Verifique a conexão e tente de novo."
+              compact
+              action={
+                <Button variant="outline" icon="refresh" onClick={carregar}>
+                  Tentar de novo
+                </Button>
+              }
+            />
+          </Card>
         ) : checkin ? (
           <Card
             className={styles.checkinCard}
@@ -107,7 +131,9 @@ export function FichaCheckins({
               <div className={styles.checkinStats}>
                 <div className={styles.checkinStat}>
                   <span className={styles.checkinStatLabel}>Peso</span>
-                  <span className={styles.checkinStatVal}>{checkin.peso} kg</span>
+                  <span className={styles.checkinStatVal}>
+                    {checkin.peso != null ? `${checkin.peso} kg` : "—"}
+                  </span>
                 </div>
                 <div className={styles.checkinStat}>
                   <span className={styles.checkinStatLabel}>Treinos</span>
@@ -182,11 +208,13 @@ export function FichaCheckins({
                   key={c.id}
                   href={`/alunos/${alunoId}/checkin/${c.semana}`}
                   title={`Semana ${c.semana}`}
-                  meta={`${dataLonga(c.enviadoEm)} · ${c.peso} kg · Treinos ${c.treinosFeitos}/${c.treinosTotais}`}
+                  meta={`${dataLonga(c.enviadoEm)}${
+                    c.peso != null ? ` · ${c.peso} kg` : ""
+                  } · Treinos ${c.treinosFeitos}/${c.treinosTotais}`}
                   tags={
-                    c.fotos.length > 0 ? (
+                    (c.fotosCount ?? c.fotos.length) > 0 ? (
                       <StatusBadge variant="off" icon="photo" noDot>
-                        {c.fotos.length} fotos
+                        {c.fotosCount ?? c.fotos.length} fotos
                       </StatusBadge>
                     ) : undefined
                   }

@@ -42,14 +42,26 @@ export default function AlunosPage() {
 
   const [mounted, setMounted] = useState(false);
   const [testAlunos, setTestAlunos] = useState<TestAluno[]>([]);
+  const [carregando, setCarregando] = useState(supabaseEnabled);
+  const [erro, setErro] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
   useEffect(() => {
     setMounted(true);
-    if (supabaseEnabled) {
-      fetchAlunos().then(setTodos).catch(() => {});
-    } else {
+    if (!supabaseEnabled) {
       setTestAlunos(getTestAlunos());
+      return;
     }
-  }, []);
+    let active = true;
+    setErro(false);
+    setCarregando(true);
+    fetchAlunos()
+      .then((as) => active && setTodos(as))
+      .catch(() => active && setErro(true))
+      .finally(() => active && setCarregando(false));
+    return () => {
+      active = false;
+    };
+  }, [tentativa]);
 
   const ativos = useMemo(
     () => todos.filter((a) => a.statusPagamento !== "novo").length,
@@ -150,7 +162,24 @@ export default function AlunosPage() {
       </div>
 
       <Card padded={false}>
-        {filtrados.length === 0 ? (
+        {carregando ? (
+          <EmptyState icon="loader" title="Carregando alunos…" compact />
+        ) : erro ? (
+          <EmptyState
+            icon="alert-triangle"
+            title="Não foi possível carregar seus alunos"
+            description="Verifique a conexão e tente de novo."
+            action={
+              <Button
+                variant="outline"
+                icon="refresh"
+                onClick={() => setTentativa((t) => t + 1)}
+              >
+                Tentar de novo
+              </Button>
+            }
+          />
+        ) : filtrados.length === 0 ? (
           <EmptyState
             icon="users"
             title="Nenhum aluno encontrado"

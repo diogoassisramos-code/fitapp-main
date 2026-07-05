@@ -58,13 +58,28 @@ export default function ResumoPage() {
     supabaseEnabled ? [] : listAlunos()
   );
   const [saldo, setSaldo] = useState<number>(supabaseEnabled ? 0 : stats.saldo);
+  const [carregando, setCarregando] = useState(supabaseEnabled);
+  const [erro, setErro] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
+
   useEffect(() => {
     if (!supabaseEnabled) return;
-    fetchAlunos().then(setAlunos).catch(() => {});
-    fetchConsultoriaResumo()
-      .then((r) => setSaldo(r.saldo))
-      .catch(() => {});
-  }, []);
+    let active = true;
+    setErro(false);
+    setCarregando(true);
+    // Falha (rede/RLS/sessão) mostra erro com retry — não "0 alunos / saldo R$ 0".
+    Promise.all([fetchAlunos(), fetchConsultoriaResumo()])
+      .then(([as, r]) => {
+        if (!active) return;
+        setAlunos(as);
+        setSaldo(r.saldo);
+      })
+      .catch(() => active && setErro(true))
+      .finally(() => active && setCarregando(false));
+    return () => {
+      active = false;
+    };
+  }, [tentativa]);
 
   // KPIs do topo + triagem: derivados dos dados REAIS (0 numa conta nova) quando
   // há Supabase; senão, os números do mock. Faturamento real depende da tabela
@@ -272,7 +287,24 @@ export default function ResumoPage() {
             </div>
           </div>
 
-          {visiveis.length === 0 ? (
+          {carregando ? (
+            <EmptyState icon="loader" title="Carregando alunos…" compact />
+          ) : erro ? (
+            <EmptyState
+              icon="alert-triangle"
+              title="Não foi possível carregar seus alunos"
+              description="Verifique a conexão e tente de novo."
+              action={
+                <Button
+                  variant="outline"
+                  icon="refresh"
+                  onClick={() => setTentativa((t) => t + 1)}
+                >
+                  Tentar de novo
+                </Button>
+              }
+            />
+          ) : visiveis.length === 0 ? (
             <EmptyState
               icon="user-search"
               title="Nenhum aluno encontrado"

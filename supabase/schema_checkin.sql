@@ -34,6 +34,12 @@ create table if not exists public.checkins (
 );
 create index if not exists idx_checkins_consultoria on public.checkins(consultoria_id);
 create index if not exists idx_checkins_aluno       on public.checkins(aluno_id);
+-- Contagem de fotos SEM baixar o payload: as listagens (histórico, home) só
+-- precisam de "quantas fotos", não das imagens. Coluna gerada → o client
+-- seleciona `fotos_count` em vez de `fotos` (que pode ser vários MB por linha).
+alter table public.checkins
+  add column if not exists fotos_count int
+  generated always as (case when jsonb_typeof(fotos) = 'array' then jsonb_array_length(fotos) else 0 end) stored;
 drop trigger if exists trg_checkins_updated on public.checkins;
 create trigger trg_checkins_updated before update on public.checkins
   for each row execute function public.set_updated_at();
@@ -93,6 +99,12 @@ create trigger trg_checkin_sync_pendente
 create or replace function public.sync_aluno_metricas_checkin()
 returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
 begin
+  -- Só reflete no aluno quando este é o check-in MAIS RECENTE. Sem isso, o
+  -- consultor responder (UPDATE) a uma semana antiga regrediria peso_atual e a
+  -- aderência para os valores daquela semana.
+  if new.semana < (select coalesce(max(semana), 0) from public.checkins where aluno_id = new.aluno_id) then
+    return null;
+  end if;
   update public.alunos a
      set peso_atual = coalesce(new.peso, a.peso_atual),
          aderencia_treino = case
@@ -167,15 +179,20 @@ create policy checkins_select on public.checkins for select using (
   or (public.auth_app_role() = 'aluno'     and aluno_id = public.current_aluno_id())
 );
 
--- INSERT: admin | consultor do tenant | aluno só da própria assinatura
+-- INSERT: admin | consultor do tenant | aluno só da própria assinatura.
+-- O aluno só pode inserir check-in PENDENTE e SEM resposta do coach — senão
+-- poderia forjar `status='respondido'`/`resposta_coach` no próprio envio.
 drop policy if exists checkins_insert on public.checkins;
 create policy checkins_insert on public.checkins for insert with check (
   public.is_admin()
   or (public.auth_app_role() = 'consultor' and consultoria_id = public.current_consultoria_id())
-  or (public.auth_app_role() = 'aluno'     and aluno_id = public.current_aluno_id())
+  or (public.auth_app_role() = 'aluno' and aluno_id = public.current_aluno_id()
+      and status = 'pendente' and resposta_coach is null)
 );
 
 -- UPDATE: consultor responde (tenant); aluno corrige o próprio enquanto pendente.
+-- O WITH CHECK do aluno reexige pendente + sem resposta, para o aluno não poder
+-- transformar o próprio check-in em "respondido" nem escrever resposta_coach.
 drop policy if exists checkins_update on public.checkins;
 create policy checkins_update on public.checkins for update
   using (
@@ -186,7 +203,8 @@ create policy checkins_update on public.checkins for update
   with check (
     public.is_admin()
     or (public.auth_app_role() = 'consultor' and consultoria_id = public.current_consultoria_id())
-    or (public.auth_app_role() = 'aluno' and aluno_id = public.current_aluno_id())
+    or (public.auth_app_role() = 'aluno' and aluno_id = public.current_aluno_id()
+        and status = 'pendente' and resposta_coach is null)
   );
 
 -- DELETE: admin | consultor do tenant

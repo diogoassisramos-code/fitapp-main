@@ -10,33 +10,9 @@ import { signIn } from "@/lib/auth";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient } from "@/utils/supabase/client";
 import { brl, FORMA_PAGAMENTO_LABEL } from "@/lib/format";
-import { pagamento, type Cobranca } from "@/lib/pagamento";
+import { cpfValido, mascararCpf } from "@/lib/cpf";
 import type { FormaPagamento } from "@/lib/types";
 import styles from "./cadastro.module.css";
-
-/** Validação de CPF (11 dígitos + dígitos verificadores). */
-function cpfValido(raw: string): boolean {
-  const cpf = raw.replace(/\D/g, "");
-  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
-  const calc = (base: string, pesoInicial: number) => {
-    let soma = 0;
-    for (let i = 0; i < base.length; i++) soma += Number(base[i]) * (pesoInicial - i);
-    const resto = (soma * 10) % 11;
-    return resto === 10 ? 0 : resto;
-  };
-  return (
-    calc(cpf.slice(0, 9), 10) === Number(cpf[9]) &&
-    calc(cpf.slice(0, 10), 11) === Number(cpf[10])
-  );
-}
-
-function mascararCpf(raw: string): string {
-  const d = raw.replace(/\D/g, "").slice(0, 11);
-  return d
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
-}
 
 // ── Planos da plataforma oferecidos no cadastro (1 gratuito + 2 pagos) ────────
 type PlanoId = "free" | "pro" | "avancado";
@@ -54,32 +30,34 @@ const PLANOS: PlanoCadastro[] = [
     id: "free",
     nome: "Gratuito",
     preco: 0,
-    limite: "Até 3 alunos",
-    recursos: ["Treino, dieta e protocolo", "Check-in semanal", "1 consultor"],
+    limite: "Até 10 alunos",
+    recursos: [
+      "Treino, dieta e protocolo",
+      "Recebimento de check-in",
+      "Recebimento pela plataforma (cartão recorrente do aluno)",
+    ],
   },
   {
     id: "pro",
-    nome: "Pro",
-    preco: 99,
+    nome: "Revo Pro",
+    preco: 60,
     limite: "Até 150 alunos",
     recursos: [
       "Tudo do Gratuito",
-      "Protocolos extras",
-      "Link de pagamento",
-      "Suporte prioritário",
+      "Recebimento pela plataforma (cartão recorrente do aluno)",
+      "Suporte exclusivo com o time",
     ],
     destaque: true,
   },
   {
     id: "avancado",
-    nome: "Avançado",
-    preco: 249,
+    nome: "Revo Pro Max",
+    preco: 120,
     limite: "Alunos ilimitados",
     recursos: [
-      "Tudo do Pro",
-      "Checkout personalizado",
-      "Relatórios avançados",
-      "Gerente de conta",
+      "Tudo do Revo Pro",
+      "Recebimento pela plataforma (cartão recorrente do aluno)",
+      "Suporte exclusivo 24 horas",
     ],
   },
 ];
@@ -110,10 +88,18 @@ export default function CadastroPage() {
   const [planoId, setPlanoId] = useState<PlanoId>("pro");
   const plano = PLANOS.find((p) => p.id === planoId)!;
 
-  // Passo 3 — Pagamento
-  const [forma, setForma] = useState<FormaPagamento>("pix");
-  const [cobranca, setCobranca] = useState<Cobranca | null>(null);
+  // Passo Pagamento (real, via Asaas — só plano pago, já com a conta criada)
+  const [forma, setForma] = useState<FormaPagamento>("cartao");
+  const [numeroCartao, setNumeroCartao] = useState("");
+  const [validade, setValidade] = useState(""); // MM/AA
+  const [cvv, setCvv] = useState("");
+  const [nomeTitular, setNomeTitular] = useState("");
+  const [cpfTitular, setCpfTitular] = useState("");
+  const [cep, setCep] = useState("");
+  const [numeroEndereco, setNumeroEndereco] = useState("");
+  const [pix, setPix] = useState<{ copiaCola: string; qrCodeImage: string } | null>(null);
   const [pagando, setPagando] = useState(false);
+  const [erroPagamento, setErroPagamento] = useState("");
 
   // Passo final — Senha (cria a conta de acesso ao painel)
   const [senha, setSenha] = useState("");
@@ -132,37 +118,80 @@ export default function CadastroPage() {
   }
 
   function continuarPlano() {
-    if (plano.preco === 0) {
-      setPasso("senha"); // gratuito pula o pagamento e vai direto criar a senha
-    } else {
-      setCobranca(null);
-      setPasso("pagamento");
-    }
+    // Pago: coleta o pagamento; depois cria a senha (conta). Grátis: direto à senha.
+    setPasso(plano.preco > 0 ? "pagamento" : "senha");
   }
 
-  async function pagar() {
-    setPagando(true);
+  /** Preenche o cartão de teste do sandbox (aprovação garantida). */
+  function preencherCartaoTeste() {
+    setNumeroCartao("4444 4444 4444 4444");
+    setValidade("12/30");
+    setCvv("123");
+    setNomeTitular(nome || "Teste Titular");
+    setCpfTitular(mascararCpf(cpf || "11144477735"));
+    setCep("01001-000");
+    setNumeroEndereco("100");
+    setErroPagamento("");
+  }
+
+  /**
+   * Valida a forma de pagamento e avança para a senha. NÃO cobra ainda — a
+   * cobrança dispara logo depois de criar a conta (a assinatura precisa do coach
+   * logado). Assim a ordem que o coach vê é pagamento → senha.
+   */
+  function continuarPagamento() {
+    setErroPagamento("");
+    if (forma === "cartao") {
+      const num = numeroCartao.replace(/\s/g, "");
+      const [mm, aa] = validade.split("/");
+      if (
+        num.length < 13 || !mm || !aa || cvv.length < 3 ||
+        !nomeTitular.trim() || !cpfValido(cpfTitular) ||
+        cep.replace(/\D/g, "").length < 8 || !numeroEndereco.trim()
+      ) {
+        setErroPagamento("Confira os dados do cartão e do titular.");
+        return;
+      }
+    }
+    setPasso("senha");
+  }
+
+  /**
+   * Cria a assinatura no Asaas (chamada logo APÓS o signUp, já logado).
+   * Retorna a mensagem de erro (string) ou null em caso de sucesso.
+   */
+  async function finalizarAssinatura(): Promise<string | null> {
+    const num = numeroCartao.replace(/\s/g, "");
+    const [mm, aa] = validade.split("/");
+    const payload =
+      forma === "cartao"
+        ? {
+            forma: "cartao",
+            cartao: {
+              number: num,
+              holderName: nomeTitular.trim(),
+              expiryMonth: mm.padStart(2, "0"),
+              expiryYear: aa.length === 2 ? "20" + aa : aa,
+              ccv: cvv,
+              holderCpf: cpfTitular.replace(/\D/g, ""),
+              postalCode: cep.replace(/\D/g, ""),
+              addressNumber: numeroEndereco.trim(),
+              phone: celular,
+            },
+          }
+        : { forma: "pix" };
     try {
-      const c = await pagamento.criarCobranca({
-        valor: plano.preco,
-        forma,
-        descricao: `Assinatura ${plano.nome} · ${nome}`,
+      const res = await fetch("/api/asaas/assinatura-consultor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      setCobranca(c);
-    } finally {
-      setPagando(false);
-    }
-  }
-
-  async function confirmarPagamento() {
-    if (!cobranca || !pagamento.confirmar) return;
-    setPagando(true);
-    try {
-      const pago = await pagamento.confirmar(cobranca.id);
-      setCobranca(pago);
-      setPasso("senha");
-    } finally {
-      setPagando(false);
+      const data = await res.json();
+      if (!res.ok || !data.ok) return data.erro || "Não foi possível processar o pagamento.";
+      if (data.pix) setPix(data.pix);
+      return null;
+    } catch {
+      return "Falha de conexão ao processar o pagamento.";
     }
   }
 
@@ -175,7 +204,7 @@ export default function CadastroPage() {
       return setErroSenha("As senhas não conferem.");
     }
 
-    // Protótipo (sem Supabase): só avança.
+    // Protótipo (sem Supabase): sem cobrança real, vai direto pro pronto.
     if (!supabaseEnabled) {
       setPrecisaConfirmar(false);
       setPasso("pronto");
@@ -208,9 +237,21 @@ export default function CadastroPage() {
       );
       return;
     }
-    // Com "Confirm email" ligado não há sessão até confirmar → tela de confirmação.
-    // Sem confirmação, a sessão já vem e o guard deixa entrar direto.
-    setPrecisaConfirmar(!data.session);
+    // Sem sessão (Confirm email ligado) → tela de confirmação; não dá pra cobrar.
+    if (!data.session) {
+      setPrecisaConfirmar(true);
+      setPasso("pronto");
+      return;
+    }
+    setPrecisaConfirmar(false);
+    // Conta criada e logado: agora sim dispara a assinatura (pagamento já
+    // coletado no passo anterior). Vai pro pronto com o resultado.
+    if (plano.preco > 0) {
+      setCriando(true);
+      const erroAssin = await finalizarAssinatura();
+      setCriando(false);
+      setErroPagamento(erroAssin || "");
+    }
     setPasso("pronto");
   }
 
@@ -220,7 +261,8 @@ export default function CadastroPage() {
     router.refresh();
   }
 
-  // Passos do indicador — pagamento só aparece pra plano pago.
+  // Ordem: dados → plano → pagamento → senha. A cobrança de fato dispara logo
+  // após criar a conta (a assinatura precisa do coach logado). Pagamento só pago.
   const steps: Passo[] =
     plano.preco > 0
       ? ["conta", "plano", "pagamento", "senha"]
@@ -402,47 +444,99 @@ export default function CadastroPage() {
             </span>
           </div>
 
-          {!cobranca ? (
+          <span className={styles.fieldLabel}>Forma de pagamento</span>
+          <Segmented<FormaPagamento>
+            ariaLabel="Forma de pagamento"
+            value={forma}
+            onChange={(f) => {
+              setForma(f);
+              setPix(null);
+              setErroPagamento("");
+            }}
+            options={FORMAS.map(
+              (f): SegmentedOption<FormaPagamento> => ({
+                value: f,
+                label: FORMA_PAGAMENTO_LABEL[f],
+              })
+            )}
+          />
+
+          {forma === "cartao" ? (
             <>
-              <span className={styles.fieldLabel}>Forma de pagamento</span>
-              <Segmented<FormaPagamento>
-                ariaLabel="Forma de pagamento"
-                value={forma}
-                onChange={setForma}
-                options={FORMAS.map(
-                  (f): SegmentedOption<FormaPagamento> => ({
-                    value: f,
-                    label: FORMA_PAGAMENTO_LABEL[f],
-                  })
-                )}
+              <Input
+                label="Número do cartão"
+                icon="credit-card"
+                inputMode="numeric"
+                placeholder="0000 0000 0000 0000"
+                value={numeroCartao}
+                onChange={(e) => setNumeroCartao(e.target.value)}
               />
-              <Button icon="lock" fullWidth onClick={pagar} disabled={pagando}>
-                {pagando ? "Gerando…" : `Pagar ${brl(plano.preco)}`}
+              <div className={styles.grid}>
+                <Input
+                  label="Validade (MM/AA)"
+                  placeholder="12/30"
+                  value={validade}
+                  onChange={(e) => setValidade(e.target.value)}
+                />
+                <Input
+                  label="CVV"
+                  inputMode="numeric"
+                  placeholder="123"
+                  value={cvv}
+                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                />
+              </div>
+              <Input
+                label="Nome no cartão"
+                icon="user"
+                value={nomeTitular}
+                onChange={(e) => setNomeTitular(e.target.value)}
+              />
+              <Input
+                label="CPF do titular"
+                icon="id"
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+                value={cpfTitular}
+                onChange={(e) => setCpfTitular(mascararCpf(e.target.value))}
+              />
+              <div className={styles.grid}>
+                <Input
+                  label="CEP"
+                  inputMode="numeric"
+                  placeholder="00000-000"
+                  value={cep}
+                  onChange={(e) => setCep(e.target.value)}
+                />
+                <Input
+                  label="Número"
+                  inputMode="numeric"
+                  placeholder="100"
+                  value={numeroEndereco}
+                  onChange={(e) => setNumeroEndereco(e.target.value)}
+                />
+              </div>
+              {erroPagamento && <p className={styles.erro}>{erroPagamento}</p>}
+              <Button icon="arrow-right" fullWidth onClick={continuarPagamento}>
+                Continuar
               </Button>
-              <p className={styles.simNota}>
-                <i className="ti ti-flask" aria-hidden /> Pagamento simulado (sem
-                cobrança real).
-              </p>
+              <button
+                type="button"
+                className={styles.voltar}
+                onClick={preencherCartaoTeste}
+              >
+                <i className="ti ti-flask" aria-hidden /> Usar cartão de teste (sandbox)
+              </button>
             </>
           ) : (
             <>
-              {cobranca.forma === "pix" && cobranca.pixCopiaCola && (
-                <div className={styles.pixBox}>
-                  <span className={styles.fieldLabel}>PIX copia e cola</span>
-                  <code className={styles.pixCode}>{cobranca.pixCopiaCola}</code>
-                </div>
-              )}
               <div className={styles.aguardando}>
-                <i className="ti ti-clock-hour-4" aria-hidden />
-                Aguardando confirmação do pagamento…
+                <i className="ti ti-qrcode" aria-hidden />
+                Você vai pagar via PIX. O QR code aparece no fim, ao criar a conta.
               </div>
-              <Button
-                icon="check"
-                fullWidth
-                onClick={confirmarPagamento}
-                disabled={pagando}
-              >
-                {pagando ? "Confirmando…" : "Já paguei (simular confirmação)"}
+              {erroPagamento && <p className={styles.erro}>{erroPagamento}</p>}
+              <Button icon="arrow-right" fullWidth onClick={continuarPagamento}>
+                Continuar
               </Button>
             </>
           )}
@@ -534,21 +628,62 @@ export default function CadastroPage() {
                   Sua conta no plano <strong>Gratuito</strong> está pronta. Bora
                   cadastrar seus primeiros alunos.
                 </>
+              ) : erroPagamento ? (
+                <>
+                  Sua conta foi criada, mas o pagamento não passou: {erroPagamento}{" "}
+                  Dá pra tentar de novo abaixo.
+                </>
+              ) : pix ? (
+                <>
+                  Conta criada! Pague o PIX abaixo para ativar o{" "}
+                  <strong>{plano.nome}</strong>.
+                </>
               ) : (
                 <>
-                  Pagamento confirmado ✅ Seu plano <strong>{plano.nome}</strong>{" "}
-                  já está ativo.
+                  Assinatura criada! Seu plano <strong>{plano.nome}</strong> ativa
+                  automaticamente assim que o pagamento confirmar.
                 </>
               )}
             </p>
-            <Button
-              variant="primary"
-              iconRight="arrow-right"
-              fullWidth
-              onClick={irPainel}
-            >
-              Ir para o painel
-            </Button>
+            {pix && (
+              <div className={styles.pixBox} style={{ marginBottom: "var(--space-4)" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`data:image/png;base64,${pix.qrCodeImage}`}
+                  alt="QR Code do PIX"
+                  style={{ width: 180, height: 180, alignSelf: "center", borderRadius: 8 }}
+                />
+                <span className={styles.fieldLabel}>PIX copia e cola</span>
+                <code className={styles.pixCode}>{pix.copiaCola}</code>
+              </div>
+            )}
+            {erroPagamento ? (
+              <>
+                <Button
+                  variant="primary"
+                  icon="refresh"
+                  fullWidth
+                  onClick={() => {
+                    setErroPagamento("");
+                    setPasso("pagamento");
+                  }}
+                >
+                  Tentar pagamento de novo
+                </Button>
+                <button type="button" className={styles.voltar} onClick={irPainel}>
+                  Ir para o painel mesmo assim
+                </button>
+              </>
+            ) : (
+              <Button
+                variant="primary"
+                iconRight="arrow-right"
+                fullWidth
+                onClick={irPainel}
+              >
+                Ir para o painel
+              </Button>
+            )}
           </div>
         ))}
 

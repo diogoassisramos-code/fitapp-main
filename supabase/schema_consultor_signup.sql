@@ -22,6 +22,15 @@ alter table public.consultorias
   add column if not exists plano        text not null default 'free',   -- free | pro | avancado
   add column if not exists plano_status text not null default 'ativo';  -- ativo | trial | inadimplente | cancelado
 
+-- Constraints de domínio (o valor vem de metadata do client no signup; sem CHECK
+-- a coluna aceitaria qualquer texto). Idempotente.
+alter table public.consultorias drop constraint if exists consultorias_plano_chk;
+alter table public.consultorias add  constraint consultorias_plano_chk
+  check (plano in ('free','pro','avancado'));
+alter table public.consultorias drop constraint if exists consultorias_plano_status_chk;
+alter table public.consultorias add  constraint consultorias_plano_status_chk
+  check (plano_status in ('ativo','trial','inadimplente','cancelado'));
+
 -- 2) Signup do consultor passa a gravar CPF, telefone e plano escolhido --------
 -- (mesma função do schema.sql, com as 3 colunas novas no INSERT da consultoria;
 --  os ramos de admin/aluno seguem idênticos.)
@@ -34,15 +43,25 @@ declare
   v_nome  text := new.raw_user_meta_data->>'nome';
   v_cpf   text := new.raw_user_meta_data->>'cpf';
   v_tel   text := new.raw_user_meta_data->>'telefone';
+  -- Plano vem 100% do client (options.data do signUp). NÃO confiar nele para
+  -- conceder entitlement pago: whitelist + qualquer plano pago nasce como
+  -- 'trial' (não 'ativo') até um caminho confiável confirmar o pagamento
+  -- (webhook do gateway / Edge Function com service role).
   v_plano text := coalesce(nullif(new.raw_user_meta_data->>'plano',''), 'free');
+  v_plano_status text;
   v_aluno_cid uuid;
 begin
+  if v_plano not in ('free','pro','avancado') then
+    v_plano := 'free';
+  end if;
+  v_plano_status := case when v_plano = 'free' then 'ativo' else 'trial' end;
+
   if v_role = 'admin' then
     raise exception 'admin nao pode ser criado via signup';
   elsif v_role = 'consultor' then
     if v_cid is not null then raise exception 'consultor nao pode escolher consultoria existente'; end if;
-    insert into public.consultorias (nome, nome_negocio, documento, telefone, plano)
-      values (coalesce(v_nome, new.email), coalesce(v_nome, new.email), v_cpf, v_tel, v_plano)
+    insert into public.consultorias (nome, nome_negocio, documento, telefone, plano, plano_status)
+      values (coalesce(v_nome, new.email), coalesce(v_nome, new.email), v_cpf, v_tel, v_plano, v_plano_status)
       returning id into v_cid;
     v_aid := null;
   elsif v_role = 'aluno' then

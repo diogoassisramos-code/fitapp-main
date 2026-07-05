@@ -4,7 +4,12 @@ out
 build
 *.log
 .DS_Store
-.env*.local
+# Segredos: ignora .env e variantes (inclui um futuro .env com service_role),
+# mantendo só os *.example versionados.
+.env
+.env.*
+!.env.example
+!.env.local.example
 next-env.d.ts
 *.tsbuildinfo
 .claude/

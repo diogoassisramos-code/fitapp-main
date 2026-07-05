@@ -40,13 +40,17 @@ export default function RevisaoCheckinPage({
   const [resposta, setResposta] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [respondido, setRespondido] = useState(false);
+  const [erroCarga, setErroCarga] = useState(false);
+  const [erroResposta, setErroResposta] = useState("");
   const [fotoAtiva, setFotoAtiva] = useState<FotoCheckin | null>(null);
   const [comparando, setComparando] = useState(false);
 
   // Carrega histórico (banco para aluno real; mock/local para seed/protótipo).
+  // comFotos=true: esta tela compara as imagens (as listagens não as baixam).
   useEffect(() => {
     let active = true;
-    resolveCheckinsConsultor(id)
+    setErroCarga(false);
+    resolveCheckinsConsultor(id, true)
       .then(({ checkins, fromDb }) => {
         if (!active) return;
         setHistorico(checkins);
@@ -55,7 +59,11 @@ export default function RevisaoCheckinPage({
         if (atual?.respostaCoach) setResposta(atual.respostaCoach);
         if (atual?.status === "respondido") setRespondido(true);
       })
-      .catch(() => active && setHistorico([]));
+      .catch(() => {
+        if (!active) return;
+        setErroCarga(true);
+        setHistorico([]);
+      });
     return () => {
       active = false;
     };
@@ -95,26 +103,36 @@ export default function RevisaoCheckinPage({
             </Button>
           }
         />
-        <EmptyState
-          icon="clipboard-off"
-          title="Check-in não encontrado"
-          description={`Não há check-in da semana ${semanaNum} para este aluno.`}
-        />
+        {erroCarga ? (
+          <EmptyState
+            icon="alert-triangle"
+            title="Não foi possível carregar o check-in"
+            description="Verifique a conexão e tente novamente."
+          />
+        ) : (
+          <EmptyState
+            icon="clipboard-off"
+            title="Check-in não encontrado"
+            description={`Não há check-in da semana ${semanaNum} para este aluno.`}
+          />
+        )}
       </div>
     );
   }
 
   const anterior = historico.find((c) => c.semana === semanaNum - 1);
   const deltaPeso =
-    anterior !== undefined
+    anterior !== undefined && checkin.peso != null && anterior.peso != null
       ? Number((checkin.peso - anterior.peso).toFixed(1))
       : undefined;
 
-  const pesoData = historico.map((c, i, arr) => ({
-    date: "S" + c.semana,
-    total: c.peso,
-    change: i === 0 ? 0 : c.peso - arr[i - 1].peso,
-  }));
+  const pesoData = historico
+    .filter((c): c is CheckIn & { peso: number } => c.peso != null)
+    .map((c, i, arr) => ({
+      date: "S" + c.semana,
+      total: c.peso,
+      change: i === 0 ? 0 : c.peso - arr[i - 1].peso,
+    }));
 
   const feedbackItens: { label: string; nota: number; icon: string }[] = [
     { label: "Energia", nota: checkin.avaliacoes.energia, icon: "bolt" },
@@ -133,10 +151,14 @@ export default function RevisaoCheckinPage({
   async function enviarResposta() {
     if (!resposta.trim() || !checkin) return;
     setEnviando(true);
+    setErroResposta("");
     try {
       await responderConsultor(checkin, fromDb, resposta.trim());
       setRespondido(true);
     } catch (e) {
+      setErroResposta(
+        "Não foi possível enviar a resposta agora. Tente novamente."
+      );
       // eslint-disable-next-line no-console
       console.error(e);
     } finally {
@@ -172,7 +194,7 @@ export default function RevisaoCheckinPage({
       <div className={styles.metrics}>
         <MetricCard
           label="Peso"
-          value={`${checkin.peso} kg`}
+          value={checkin.peso != null ? `${checkin.peso} kg` : "—"}
           icon="weight"
           delta={
             deltaPeso !== undefined
@@ -378,6 +400,17 @@ export default function RevisaoCheckinPage({
               if (respondido) setRespondido(false);
             }}
           />
+          {erroResposta && (
+            <p
+              style={{
+                color: "var(--color-text-danger)",
+                fontSize: 14,
+                margin: "var(--space-2) 0 0",
+              }}
+            >
+              {erroResposta}
+            </p>
+          )}
           <div className={styles.actions}>
             <Button variant="outline" icon="barbell" href={`/alunos/${id}/treino`}>
               Ajustar treino

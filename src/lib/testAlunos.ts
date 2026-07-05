@@ -116,9 +116,11 @@ export function addTestAluno(input: NovoAlunoInput): AddResult {
   if (!input.nome.trim()) {
     return { ok: false, erro: "Informe o nome do aluno." };
   }
-  const token = `${slug(input.nome)}-${list.length + 1}`;
+  // Sufixo aleatório (não list.length): remover e recriar não colide mais ids/tokens.
+  const sufixo = crypto.randomUUID().slice(0, 8);
+  const token = `${slug(input.nome)}-${sufixo}`;
   const aluno: TestAluno = {
-    id: `teste-${token}`,
+    id: `teste-${sufixo}`,
     nome: input.nome.trim(),
     idade: (input.idade ?? "").trim(),
     altura: (input.altura ?? "").trim(),

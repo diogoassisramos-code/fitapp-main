@@ -220,8 +220,14 @@ export type CheckIn = {
   alunoId: string;
   semana: number;
   enviadoEm: string;
-  peso: number;
+  /** Peso do check-in. Opcional — o aluno pode enviar sem informar o peso. */
+  peso?: number;
   fotos: FotoCheckin[];
+  /**
+   * Nº de fotos quando as imagens não foram carregadas (listagens leves, que
+   * não baixam o payload das fotos). Quando `fotos` vem completo, é redundante.
+   */
+  fotosCount?: number;
   avaliacoes: { energia: number; sono: number; dieta: number }; // 1-5
   treinosFeitos: number;
   treinosTotais: number;

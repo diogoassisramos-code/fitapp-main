@@ -333,7 +333,7 @@ export default function TreinoBuilderPage({
       {erroSalvar && (
         <p
           role="alert"
-          style={{ color: "var(--color-danger)", fontSize: 14, margin: 0 }}
+          style={{ color: "var(--color-text-danger)", fontSize: 14, margin: 0 }}
         >
           {erroSalvar}
         </p>

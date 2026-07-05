@@ -277,16 +277,22 @@ alter table public.treinos      enable row level security;
 alter table public.exercicios   enable row level security;
 
 -- ---------- consultorias ----------
+-- IMPORTANTE: só ADMIN ou o próprio CONSULTOR do tenant. O aluno tem
+-- consultoria_id preenchido no profile, então SEM o filtro de papel ele leria
+-- saldo/dados de saque e (com o grant de UPDATE por coluna abaixo) poderia
+-- reescrever a chave PIX de saque do consultor. O current_consultoria_id() usado
+-- pela RLS das outras tabelas lê de `profiles`, não daqui — restringir o SELECT
+-- de consultorias ao consultor não quebra o isolamento por tenant do aluno.
 drop policy if exists consultorias_select on public.consultorias;
 create policy consultorias_select on public.consultorias for select
-  using (public.is_admin() or id = public.current_consultoria_id());
+  using (public.is_admin() or (public.auth_app_role() = 'consultor' and id = public.current_consultoria_id()));
 drop policy if exists consultorias_insert on public.consultorias;
 create policy consultorias_insert on public.consultorias for insert
   with check (public.is_admin());   -- criação real vem do trigger de signup
 drop policy if exists consultorias_update on public.consultorias;
 create policy consultorias_update on public.consultorias for update
-  using  (public.is_admin() or id = public.current_consultoria_id())
-  with check (public.is_admin() or id = public.current_consultoria_id());
+  using  (public.is_admin() or (public.auth_app_role() = 'consultor' and id = public.current_consultoria_id()))
+  with check (public.is_admin() or (public.auth_app_role() = 'consultor' and id = public.current_consultoria_id()));
 drop policy if exists consultorias_delete on public.consultorias;
 create policy consultorias_delete on public.consultorias for delete using (public.is_admin());
 

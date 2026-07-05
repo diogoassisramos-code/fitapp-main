@@ -356,7 +356,8 @@ export default async function AdminAlunoDetalhePage({
                         </span>
                       </span>
                       <span className={styles.itemMeta}>
-                        {c.peso} kg · treinos {c.treinosFeitos}/{c.treinosTotais}
+                        {c.peso != null ? `${c.peso} kg · ` : ""}treinos{" "}
+                        {c.treinosFeitos}/{c.treinosTotais}
                         {"  "}
                         <StatusBadge
                           variant={c.status === "pendente" ? "new" : "ok"}

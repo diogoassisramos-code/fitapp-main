@@ -1,3 +1,6 @@
+"use client";
+
+import { useId } from "react";
 import styles from "./ui.module.css";
 
 export function Textarea({
@@ -15,9 +18,11 @@ export function Textarea({
   const count =
     typeof value === "string" ? value.length : String(value ?? "").length;
 
+  const autoId = useId();
+  const areaId = id ?? autoId;
   const area = (
     <textarea
-      id={id}
+      id={areaId}
       className={styles.textarea}
       maxLength={maxLength}
       value={value}
@@ -30,7 +35,7 @@ export function Textarea({
   return (
     <div className={[styles.field, className].filter(Boolean).join(" ")}>
       {label && (
-        <label className={styles.fieldLabel} htmlFor={id}>
+        <label className={styles.fieldLabel} htmlFor={areaId}>
           {label}
         </label>
       )}

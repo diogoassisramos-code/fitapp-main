@@ -45,9 +45,10 @@ values ('22222222-2222-2222-2222-222222222222', 'consultor', '11111111-1111-1111
 -- ---------------- alunos ----------------
 insert into public.alunos (id, consultoria_id, nome, cpf, email, objetivo, status_pagamento, proximo_vencimento, inicio, peso_inicial, peso_atual, aderencia_treino, checkin_pendente)
 values
-  ('a0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Ana Paula Souza',  '111.111.111-11', 'ana@coachfit.com',   'Hipertrofia',   'em_dia',   '2026-06-28', '2026-05-10', 62.0, 60.4, 92, true),
-  ('a0000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Bruno Lima',       '222.222.222-22', 'bruno@exemplo.com',  'Emagrecimento', 'pendente', '2026-06-22', '2026-04-01', 88.0, 84.2, 70, true),
-  ('a0000000-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'Carla Reis',       '333.333.333-33', 'carla@exemplo.com',  'Avaliação',     'atrasado', '2026-06-14', '2026-03-15', 70.0, 69.1, 55, false);
+  -- CPF sempre só com dígitos (identidade global normalizada; casa com createAluno).
+  ('a0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Ana Paula Souza',  '11111111111', 'ana@coachfit.com',   'Hipertrofia',   'em_dia',   '2026-06-28', '2026-05-10', 62.0, 60.4, 92, true),
+  ('a0000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Bruno Lima',       '22222222222', 'bruno@exemplo.com',  'Emagrecimento', 'pendente', '2026-06-22', '2026-04-01', 88.0, 84.2, 70, true),
+  ('a0000000-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'Carla Reis',       '33333333333', 'carla@exemplo.com',  'Avaliação',     'atrasado', '2026-06-14', '2026-03-15', 70.0, 69.1, 55, false);
 
 -- ---------------- aluno com login (Ana) ----------------
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

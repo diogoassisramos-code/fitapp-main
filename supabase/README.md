@@ -6,10 +6,28 @@ Backend compartilhado pelos dois apps: o **dashboard** (Next.js, este repo) e o 
 
 Tabelas: `consultorias` (tenant) · `profiles` (auth) · `alunos` · `treinos` · `exercicios`, com **RLS multi-tenant** (cada consultoria só vê seus alunos; cada aluno só vê o que é dele e já publicado). Demais entidades (planos, dieta, protocolo, check-in, financeiro, plataforma) vêm nas próximas fatias — ver fim do `schema.sql`.
 
+## ⚠️ Ordem das migrations (importante)
+
+Os scripts NÃO são versionados por uma ferramenta — rode-os **na ordem abaixo, uma vez cada**. Todos usam `drop policy … + create policy` com os **mesmos nomes**, então **re-rodar um arquivo antigo depois de um mais novo REGRIDE a segurança** (ex.: re-rodar `schema_checkin.sql` ou `schema.sql` depois do `schema_membership.sql` reverte policies endurecidas). Se precisar reaplicar, rode a cadeia inteira até o fim, ou migre para `supabase/migrations/` + `supabase db push` (recomendado antes de produção).
+
+Ordem obrigatória:
+
+1. `schema.sql` (base + RLS + consultorias)
+2. `schema_dieta_protocolo.sql`
+3. `schema_checkin.sql`
+4. `schema_consultor_signup.sql`
+5. `schema_pagamentos.sql` (ids do Asaas + tabelas `pagamentos`/`webhook_events`)
+6. `schema_membership.sql` (**deve ser o ÚLTIMO** — reescreve a RLS para o modelo de vínculo)
+
+Opcionais (podem rodar a qualquer momento depois da base): `save_treino.sql` / `save_dieta.sql` / `save_protocolo.sql` (saves atômicos usados pelo `db.ts`), `add_admin.sql` (super-admin; senha aleatória impressa na execução), `seed.sql` (dados de exemplo — rode antes do membership ou insira os vínculos manualmente).
+
+### Integração Asaas (pagamentos)
+Além das migrations, o modo Asaas exige env de SERVIDOR em `.env.local` (ver `.env.local.example`): `SUPABASE_SERVICE_ROLE_KEY`, `ASAAS_API_KEY`, `ASAAS_BASE_URL`, `ASAAS_WEBHOOK_TOKEN`. Configure o webhook no painel/API do Asaas apontando para `https://SEU-DOMINIO/api/webhooks/asaas` com o mesmo `authToken` de `ASAAS_WEBHOOK_TOKEN` e `sendType = SEQUENTIALLY`. Em dev, exponha a porta 3000 por um túnel (ex.: ngrok) para o Asaas alcançar o webhook. Smoke-test da credencial: `GET /api/asaas/health`.
+
 ## Passo a passo de provisão
 
 1. **Crie o projeto** em [supabase.com](https://supabase.com) → New project. Região: `South America (São Paulo)`. Guarde a senha do banco.
-2. **Rode o schema**: SQL Editor → New query → cole o conteúdo de [`schema.sql`](./schema.sql) → Run.
+2. **Rode as migrations** na ordem acima: SQL Editor → New query → cole cada arquivo → Run.
 3. **Rode o seed** (dados + logins de demo): SQL Editor → cole [`seed.sql`](./seed.sql) → Run.
 4. **Desligue a confirmação de e-mail** (protótipo): Authentication → Providers → Email → **Confirm email = OFF**. (O seed já marca os usuários como confirmados, mas isso evita atrito em cadastros novos.)
 5. **Pegue as chaves**: Project Settings → API:

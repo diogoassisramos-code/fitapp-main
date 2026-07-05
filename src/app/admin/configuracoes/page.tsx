@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import {
   Card,
@@ -121,10 +121,49 @@ export default function AdminConfiguracoesPage() {
   const [emailSuporte, setEmailSuporte] = useState("suporte@revo.com");
 
   // cobranca
-  const [gateway, setGateway] = useState("Stripe/Pagar.me");
-  const [taxa, setTaxa] = useState("5");
+  const [gateway, setGateway] = useState("Asaas");
+  const [taxa, setTaxa] = useState("10");
   const [moeda, setMoeda] = useState<"BRL" | "USD">("BRL");
   const [ciclo, setCiclo] = useState<"mensal" | "anual">("mensal");
+  const [taxaSalvando, setTaxaSalvando] = useState(false);
+  const [taxaMsg, setTaxaMsg] = useState("");
+
+  // Carrega a taxa real da plataforma (Fluxo 2 / split).
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/taxa-plataforma")
+      .then((r) => r.json())
+      .then((d) => {
+        if (active && d?.taxaPct != null) setTaxa(String(d.taxaPct));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function salvarTaxa() {
+    setTaxaMsg("");
+    const pct = Number(String(taxa).replace(",", "."));
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      setTaxaMsg("Taxa inválida (0–100).");
+      return;
+    }
+    setTaxaSalvando(true);
+    try {
+      const res = await fetch("/api/admin/taxa-plataforma", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pct }),
+      });
+      const data = await res.json();
+      setTaxaMsg(res.ok && data.ok ? "Taxa salva ✓" : data.erro || "Não foi possível salvar.");
+    } catch {
+      setTaxaMsg("Falha de conexão.");
+    } finally {
+      setTaxaSalvando(false);
+    }
+  }
 
   // planos & limites
   const [diasTrial, setDiasTrial] = useState("7");
@@ -236,10 +275,15 @@ export default function AdminConfiguracoesPage() {
                   />
                 </div>
                 <Nota>
-                  A taxa da plataforma incide sobre o volume total processado
-                  nas cobranças das consultorias.
+                  Taxa retida pela plataforma no split de cada pagamento
+                  aluno→coach. O coach recebe o restante no walletId dele.
                 </Nota>
-                <SaveBar />
+                {taxaMsg && <p className={styles.fieldHint}>{taxaMsg}</p>}
+                <div className={styles.saveBar}>
+                  <Button icon="check" onClick={salvarTaxa} disabled={taxaSalvando}>
+                    {taxaSalvando ? "Salvando…" : "Salvar taxa"}
+                  </Button>
+                </div>
               </CardBody>
             </Card>
           )}

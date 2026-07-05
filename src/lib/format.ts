@@ -7,6 +7,7 @@ import type {
   FrequenciaCheckin,
 } from "./types";
 import type { BadgeVariant } from "@/components/ui/StatusBadge";
+import { supabaseEnabled } from "./supabaseEnabled";
 
 /** Formata valor em Reais: 4820.5 -> "R$ 4.820,50" */
 export function brl(value: number): string {
@@ -37,11 +38,40 @@ export function dataLonga(iso: string): string {
   return `${d} ${meses[Number(m) - 1]} ${y}`;
 }
 
-const HOJE = "2026-06-21";
+/**
+ * Converte um timestamp (ISO/timestamptz) para a data local `YYYY-MM-DD`.
+ * `dataLonga`/`dataCurta` esperam data-only; truncar o ISO em UTC com
+ * `.slice(0,10)` mostra o dia errado à noite no Brasil (UTC−3). Uma string que
+ * já é data-only passa direto (não reinterpretar como meia-noite UTC).
+ */
+export function dataLocalYMD(
+  ts: string | number | Date | null | undefined,
+  timeZone = "America/Sao_Paulo"
+): string {
+  if (ts === null || ts === undefined || ts === "") return "";
+  if (typeof ts === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ts)) return ts;
+  const d = ts instanceof Date ? ts : new Date(ts);
+  if (Number.isNaN(d.getTime())) return typeof ts === "string" ? ts.slice(0, 10) : "";
+  // en-CA formata como YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
 
-/** true se a data já passou (relativo a 2026-06-21). */
-export function estaAtrasada(iso: string): boolean {
-  return iso < HOJE;
+/** Data mock do dataset de exemplo (datas relativas a este dia). */
+const HOJE_MOCK = "2026-06-21";
+
+/**
+ * true se a data já passou. Com Supabase ligado (dados reais), compara contra
+ * HOJE de verdade; no modo mock, contra a data de referência do dataset.
+ */
+export function estaAtrasada(iso: string, hoje?: string): boolean {
+  if (!iso) return false;
+  const ref = hoje ?? (supabaseEnabled ? dataLocalYMD(new Date()) : HOJE_MOCK);
+  return iso < ref;
 }
 
 /** Mapeia status de pagamento para variante de badge + rótulo. */

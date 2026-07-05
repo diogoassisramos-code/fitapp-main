@@ -28,6 +28,7 @@ import {
 } from "@/lib/testAlunos";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createAluno } from "@/lib/db";
+import { cpfValido, mascararCpf } from "@/lib/cpf";
 import styles from "./novo.module.css";
 
 export default function NovoAlunoPage() {
@@ -72,6 +73,12 @@ export default function NovoAlunoPage() {
     // Com Supabase: grava o aluno no banco e volta pra lista.
     if (supabaseEnabled) {
       if (!nome.trim()) return;
+      // CPF é opcional, mas se informado tem que ser válido (é a identidade
+      // global do aluno). createAluno normaliza para 11 dígitos ao persistir.
+      if (cpf.trim() && !cpfValido(cpf)) {
+        setErro("CPF inválido. Confira os números ou deixe o campo em branco.");
+        return;
+      }
       setSalvando(true);
       try {
         await createAluno({ nome: nome.trim(), cpf, email, telefone, objetivo });
@@ -278,9 +285,10 @@ export default function NovoAlunoPage() {
             <Input
               label="CPF (opcional)"
               icon="id"
+              inputMode="numeric"
               placeholder="000.000.000-00"
               value={cpf}
-              onChange={(e) => setCpf(e.target.value)}
+              onChange={(e) => setCpf(mascararCpf(e.target.value))}
             />
 
             <div className={styles.grid}>

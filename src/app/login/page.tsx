@@ -19,15 +19,28 @@ export default function LoginPage() {
 
   async function entrar() {
     setErro("");
-    if (supabaseEnabled) {
-      setCarregando(true);
+    // Guarda contra campos vazios (ex.: autofill que preenche só a senha e não
+    // dispara o onChange do e-mail) — evita "clico e nada acontece".
+    if (!email.trim() || !senha) {
+      setErro("Preencha e-mail e senha.");
+      return;
+    }
+
+    // Protótipo (sem Supabase): sempre entra.
+    if (!supabaseEnabled) {
+      signIn();
+      router.push("/");
+      return;
+    }
+
+    setCarregando(true);
+    try {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password: senha,
       });
       if (error) {
-        setCarregando(false);
         setErro("E-mail ou senha inválidos.");
         return;
       }
@@ -44,19 +57,36 @@ export default function LoginPage() {
           .maybeSingle();
         if (prof?.role === "aluno") destino = "/aluno";
       }
-      setCarregando(false);
       router.push(destino);
       router.refresh();
-      return;
+    } catch {
+      // Qualquer falha (rede, exceção do SDK) mostra mensagem em vez de silêncio.
+      setErro("Não foi possível entrar agora. Tente novamente em instantes.");
+    } finally {
+      setCarregando(false);
     }
-    // Protótipo (sem Supabase): sempre entra.
-    signIn();
-    router.push("/");
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     entrar();
+  }
+
+  async function entrarComGoogle() {
+    setErro("");
+    if (supabaseEnabled) {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/` },
+      });
+      // Em sucesso o navegador é redirecionado ao Google (sem router.push aqui).
+      if (error) setErro("Não foi possível entrar com o Google agora.");
+      return;
+    }
+    // Protótipo (sem Supabase): entra direto para demonstração.
+    signIn();
+    router.push("/");
   }
 
   return (
@@ -92,7 +122,7 @@ export default function LoginPage() {
         </div>
 
         {erro && (
-          <p style={{ color: "var(--color-danger)", fontSize: 13, margin: 0 }}>
+          <p style={{ color: "var(--color-text-danger)", fontSize: 13, margin: 0 }}>
             {erro}
           </p>
         )}
@@ -116,7 +146,8 @@ export default function LoginPage() {
         variant="outline"
         icon="brand-google"
         fullWidth
-        onClick={entrar}
+        onClick={entrarComGoogle}
+        disabled={carregando}
       >
         Entrar com Google
       </Button>

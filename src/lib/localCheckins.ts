@@ -11,6 +11,7 @@
 // Escrita só em event handlers (client). Leitura via useEffect/no cliente.
 // ============================================================
 import type { CheckIn, FotoCheckin } from "./types";
+import { dataLocalYMD } from "./format";
 
 const KEY_ENVIOS = "revo:checkins";
 const KEY_RESPOSTAS = "revo:checkin-respostas";
@@ -27,12 +28,14 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
-function write(key: string, value: unknown): void {
-  if (typeof window === "undefined") return;
+/** Grava no localStorage. Retorna false em falha (ex.: QuotaExceededError). */
+function write(key: string, value: unknown): boolean {
+  if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
-    /* ignore */
+    return false;
   }
 }
 
@@ -74,9 +77,9 @@ export function addLocalCheckin(
     id: `local-${alunoId}-s${input.semana}-${Date.now()}`,
     alunoId,
     semana: input.semana,
-    // data-only (YYYY-MM-DD) para casar com o formatador dataLonga.
-    enviadoEm: new Date().toISOString().slice(0, 10),
-    peso: input.peso ?? 0,
+    // data local (YYYY-MM-DD) — não truncar em UTC (mostraria o dia errado à noite).
+    enviadoEm: dataLocalYMD(new Date()),
+    peso: input.peso,
     fotos: input.fotos ?? [],
     avaliacoes: {
       energia: input.energia,
@@ -92,7 +95,13 @@ export function addLocalCheckin(
   const restante = allEnvios().filter(
     (c) => !(c.alunoId === alunoId && c.semana === input.semana)
   );
-  write(KEY_ENVIOS, [...restante, checkin]);
+  // Fotos em data URL podem estourar a quota (~5 MB). Se a gravação falhar, NÃO
+  // fingir sucesso — lança para o formulário mostrar erro em vez de "enviado".
+  if (!write(KEY_ENVIOS, [...restante, checkin])) {
+    throw new Error(
+      "Não foi possível salvar o check-in (armazenamento cheio). Tente enviar menos fotos."
+    );
+  }
   return checkin;
 }
 

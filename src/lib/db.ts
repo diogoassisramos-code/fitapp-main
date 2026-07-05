@@ -5,6 +5,7 @@
  * os acessores mock de `data.ts`.
  */
 import { createClient } from "@/utils/supabase/client";
+import { dataLocalYMD } from "./format";
 import type {
   Aluno,
   Treino,
@@ -20,6 +21,19 @@ import type {
 } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+/**
+ * true quando o erro é "função RPC inexistente" (PGRST202) — ou seja, a
+ * migration da RPC ainda não rodou no banco. Usado para cair no fallback
+ * delete-then-insert sem quebrar quem ainda não aplicou os supabase/save_*.sql.
+ */
+function isMissingRpc(
+  error: { code?: string; message?: string } | null,
+  nome: string
+): boolean {
+  if (!error) return false;
+  return error.code === "PGRST202" || new RegExp(nome, "i").test(error.message ?? "");
+}
 
 function mapAluno(r: any): Aluno {
   return {
@@ -94,11 +108,14 @@ export async function getMyConsultoriaId(): Promise<string | null> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-  const { data } = await supabase
+  // Propaga o erro (não engole): uma falha de rede/RLS aqui não deve virar
+  // "sem consultoria" silencioso — quem chama distingue vazio de falha.
+  const { data, error } = await supabase
     .from("profiles")
     .select("consultoria_id")
     .eq("id", user.id)
     .maybeSingle();
+  if (error) throw error;
   return data?.consultoria_id ?? null;
 }
 
@@ -110,11 +127,12 @@ export async function fetchConsultoriaResumo(): Promise<{
   const supabase = createClient();
   const cid = await getMyConsultoriaId();
   if (!cid) return { saldo: 0, aLiberar: 0 };
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("consultorias")
     .select("saldo, a_liberar")
     .eq("id", cid)
     .maybeSingle();
+  if (error) throw error; // não mascarar falha como saldo R$ 0
   return {
     saldo: Number(data?.saldo ?? 0),
     aLiberar: Number(data?.a_liberar ?? 0),
@@ -132,6 +150,9 @@ export async function createAluno(input: {
   const supabase = createClient();
   const consultoria_id = await getMyConsultoriaId();
   if (!consultoria_id) throw new Error("sem consultoria");
+  // CPF sempre persistido só com dígitos (identidade global): evita que
+  // "123.456.789-09" e "12345678909" burlem o índice único e a busca do admin.
+  const cpfDigitos = (input.cpf ?? "").replace(/\D/g, "");
   const { data, error } = await supabase
     .from("alunos")
     .insert({
@@ -139,7 +160,7 @@ export async function createAluno(input: {
       nome: input.nome,
       email: input.email || null,
       objetivo: input.objetivo || null,
-      cpf: input.cpf || null,
+      cpf: cpfDigitos || null,
       telefone: input.telefone || null,
       status_pagamento: "novo",
     })
@@ -402,10 +423,46 @@ function exerciciosToRows(treinoId: string, exercicios: Exercicio[]) {
 
 /**
  * Salva o treino do aluno e SUBSTITUI seus exercícios. consultoria_id é setado
- * por trigger (não enviamos). Estratégia delete-then-insert (protótipo); a
- * versão atômica via RPC está em supabase/save_treino.sql.
+ * por trigger (não enviamos). Usa a RPC ATÔMICA `save_treino` (delete+insert na
+ * mesma transação → rollback se algo falhar, sem risco de apagar o treino real
+ * numa falha parcial). Fallback delete-then-insert quando a RPC não existe.
  */
 export async function saveTreino(
+  alunoId: string,
+  treino: { id?: string; nome: string; rascunho?: boolean; exercicios: Exercicio[] }
+): Promise<Treino> {
+  const supabase = createClient();
+  const nomeFinal = treino.nome?.trim() || "Novo treino";
+  const p_exercicios = treino.exercicios.map((ex, i) => ({
+    ordem: i,
+    nome: ex.nome,
+    grupo: ex.grupo || null,
+    series: ex.series ?? null,
+    reps: ex.reps || null,
+    descanso_seg: ex.descansoSeg ?? null,
+    video_origem: ex.video?.origem ?? "vazio",
+    video_url: ex.video?.url || null,
+    observacoes: ex.observacoes || null,
+    series_detalhe: ex.seriesDetalhe ?? [],
+  }));
+  const { data: rpcId, error: rpcErr } = await supabase.rpc("save_treino", {
+    p_aluno_id: alunoId,
+    p_treino_id: treino.id ?? null,
+    p_nome: nomeFinal,
+    p_rascunho: treino.rascunho ?? false,
+    p_exercicios,
+  });
+  if (!rpcErr) {
+    const saved = await fetchTreinoById(rpcId as string);
+    if (!saved) throw new Error("treino não encontrado após salvar");
+    return saved;
+  }
+  if (!isMissingRpc(rpcErr, "save_treino")) throw rpcErr;
+  return saveTreinoFallback(alunoId, treino);
+}
+
+/** Fallback delete-then-insert (pré-migration da RPC atômica). */
+async function saveTreinoFallback(
   alunoId: string,
   treino: { id?: string; nome: string; rascunho?: boolean; exercicios: Exercicio[] }
 ): Promise<Treino> {
@@ -537,11 +594,48 @@ function alimentosToRows(refeicaoId: string, alimentos: Alimento[]) {
 }
 
 /**
- * Salva a dieta e SUBSTITUI refeições + alimentos (replace de 2 níveis via
- * cascata). consultoria_id via trigger. delete-then-insert (RPC atômica
- * opcional em supabase/save_dieta.sql).
+ * Salva a dieta e SUBSTITUI refeições + alimentos. Usa a RPC ATÔMICA
+ * `save_dieta` (tudo numa transação); fallback delete-then-insert quando a RPC
+ * ainda não existe. O fallback tinha o risco de apagar a dieta real do aluno
+ * numa falha entre o DELETE e os INSERTs.
  */
 export async function saveDieta(
+  alunoId: string,
+  dieta: { id?: string; metaKcal: number; rascunho?: boolean; refeicoes: Refeicao[] }
+): Promise<Dieta> {
+  const supabase = createClient();
+  const p_refeicoes = (dieta.refeicoes ?? []).map((r) => ({
+    nome: r.nome,
+    horario: r.horario || null,
+    observacoes: r.observacoes || null,
+    alimentos: (r.alimentos ?? []).map((a) => ({
+      nome: a.nome,
+      quantidade: { valor: a.quantidade?.valor ?? null, unidade: a.quantidade?.unidade || null },
+      macros: { kcal: a.macros?.kcal ?? null, p: a.macros?.p ?? null, c: a.macros?.c ?? null, g: a.macros?.g ?? null },
+      substituicoes: a.substituicoes ?? [],
+      custom: a.custom ?? false,
+      semMacros: a.semMacros ?? false,
+      observacoes: a.observacoes || null,
+    })),
+  }));
+  const { error: rpcErr } = await supabase.rpc("save_dieta", {
+    p_aluno_id: alunoId,
+    p_dieta_id: dieta.id ?? null,
+    p_meta_kcal: dieta.metaKcal ?? 0,
+    p_rascunho: dieta.rascunho ?? false,
+    p_refeicoes,
+  });
+  if (!rpcErr) {
+    const saved = await fetchDietaByAluno(alunoId);
+    if (!saved) throw new Error("dieta não encontrada após salvar");
+    return saved;
+  }
+  if (!isMissingRpc(rpcErr, "save_dieta")) throw rpcErr;
+  return saveDietaFallback(alunoId, dieta);
+}
+
+/** Fallback delete-then-insert (pré-migration da RPC atômica). */
+async function saveDietaFallback(
   alunoId: string,
   dieta: { id?: string; metaKcal: number; rascunho?: boolean; refeicoes: Refeicao[] }
 ): Promise<Dieta> {
@@ -667,7 +761,45 @@ function itensToRows(blocoId: string, itens: ProtocoloItem[]) {
   }));
 }
 
+/**
+ * Salva o protocolo e SUBSTITUI blocos/itens. Usa a RPC ATÔMICA `save_protocolo`
+ * (transação única); fallback delete-then-insert quando a RPC não existe.
+ */
 export async function saveProtocolo(
+  alunoId: string,
+  proto: { id?: string; rascunho?: boolean; blocos: ProtocoloBloco[] }
+): Promise<Protocolo> {
+  const supabase = createClient();
+  const p_blocos = (proto.blocos ?? []).map((b) => ({
+    nome: b.nome,
+    itens: (b.itens ?? []).map((it) => ({
+      nome: it.nome,
+      dose: it.dose || null,
+      horario: it.horario || null,
+      observacoes: it.observacoes || null,
+      comoUsar: it.comoUsar || null,
+      comOQue: it.comOQue || null,
+      beneficio: it.beneficio || null,
+      duracao: it.duracao || null,
+    })),
+  }));
+  const { error: rpcErr } = await supabase.rpc("save_protocolo", {
+    p_aluno_id: alunoId,
+    p_protocolo_id: proto.id ?? null,
+    p_rascunho: proto.rascunho ?? false,
+    p_blocos,
+  });
+  if (!rpcErr) {
+    const saved = await fetchProtocoloByAluno(alunoId);
+    if (!saved) throw new Error("protocolo não encontrado após salvar");
+    return saved;
+  }
+  if (!isMissingRpc(rpcErr, "save_protocolo")) throw rpcErr;
+  return saveProtocoloFallback(alunoId, proto);
+}
+
+/** Fallback delete-then-insert (pré-migration da RPC atômica). */
+async function saveProtocoloFallback(
   alunoId: string,
   proto: { id?: string; rascunho?: boolean; blocos: ProtocoloBloco[] }
 ): Promise<Protocolo> {
@@ -719,14 +851,18 @@ export async function saveProtocolo(
 
 // ── Check-in ─────────────────────────────────────────────────────────────────
 function mapCheckin(r: any): CheckIn {
+  const fotos = Array.isArray(r.fotos) ? (r.fotos as FotoCheckin[]) : [];
   return {
     id: r.id,
     alunoId: r.aluno_id,
     semana: r.semana ?? 0,
-    // enviado_em é timestamptz; o app exibe data-only (YYYY-MM-DD).
-    enviadoEm: String(r.enviado_em ?? r.created_at ?? "").slice(0, 10),
-    peso: Number(r.peso ?? 0),
-    fotos: Array.isArray(r.fotos) ? (r.fotos as FotoCheckin[]) : [],
+    // enviado_em é timestamptz; converte pro dia LOCAL (não trunca em UTC).
+    enviadoEm: dataLocalYMD(r.enviado_em ?? r.created_at),
+    // peso é opcional no envio; null → undefined (não coagir para 0 kg).
+    peso: r.peso == null ? undefined : Number(r.peso),
+    fotos,
+    // fotos_count vem das listagens leves (sem baixar o payload das fotos).
+    fotosCount: r.fotos_count ?? fotos.length,
     avaliacoes: {
       energia: r.energia ?? 0,
       sono: r.sono ?? 0,
@@ -740,12 +876,25 @@ function mapCheckin(r: any): CheckIn {
   };
 }
 
-/** Check-ins de um aluno, ordenados por semana (mais antiga primeiro). */
-export async function fetchCheckinsByAluno(alunoId: string): Promise<CheckIn[]> {
+// Colunas de listagem SEM o payload das fotos (só a contagem via fotos_count).
+// Histórico e home só precisam de metadados — baixar `fotos` (data URLs de
+// vários MB) em toda leitura é a maior fonte de custo do check-in.
+const CHECKIN_COLS_LEVES =
+  "id,aluno_id,semana,enviado_em,created_at,peso,fotos_count,energia,sono,dieta,treinos_feitos,treinos_totais,comentario,resposta_coach,status";
+
+/**
+ * Check-ins de um aluno, ordenados por semana (mais antiga primeiro).
+ * Por padrão NÃO baixa as fotos (só `fotos_count`); passe `comFotos` para as
+ * telas que exibem as imagens (ex.: revisão do check-in com comparação).
+ */
+export async function fetchCheckinsByAluno(
+  alunoId: string,
+  comFotos = false
+): Promise<CheckIn[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("checkins")
-    .select("*")
+    .select(comFotos ? "*" : CHECKIN_COLS_LEVES)
     .eq("aluno_id", alunoId)
     .order("semana");
   if (error) throw error;
@@ -837,10 +986,14 @@ export async function getMyAlunoId(): Promise<string | null> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-  const { data } = await supabase
+  // Propaga o erro: engolir aqui faz um aluno REAL cair no modo protótipo (Ana)
+  // e enviar o check-in para o localStorage em vez do banco. `null` deve
+  // significar "não é aluno", nunca "a consulta falhou".
+  const { data, error } = await supabase
     .from("profiles")
     .select("aluno_id")
     .eq("id", user.id)
     .maybeSingle();
+  if (error) throw error;
   return data?.aluno_id ?? null;
 }

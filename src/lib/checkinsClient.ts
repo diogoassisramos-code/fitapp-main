@@ -17,13 +17,19 @@ import { supabaseEnabled } from "./supabaseEnabled";
 
 export type Modo = "real" | "proto";
 
+/** Alunos reais têm id UUID; seed/protótipo usam ids curtos ("1", "teste-…"). */
+function isUuid(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
 /** Lê os check-ins de um aluno na fonte certa para o modo. */
 export async function resolveCheckins(
   alunoId: string,
-  modo: Modo
+  modo: Modo,
+  comFotos = false
 ): Promise<CheckIn[]> {
   if (modo === "real" && supabaseEnabled) {
-    return fetchCheckinsByAluno(alunoId);
+    return fetchCheckinsByAluno(alunoId, comFotos);
   }
   return mergeCheckins(getCheckins(alunoId), alunoId);
 }
@@ -75,15 +81,15 @@ export async function responder(
  * (necessário para responder no lugar certo).
  */
 export async function resolveCheckinsConsultor(
-  alunoId: string
+  alunoId: string,
+  comFotos = false
 ): Promise<{ checkins: CheckIn[]; fromDb: boolean }> {
-  if (supabaseEnabled) {
-    try {
-      const db = await fetchCheckinsByAluno(alunoId);
-      if (db.length) return { checkins: db, fromDb: true };
-    } catch {
-      /* cai no mock/local */
-    }
+  // Aluno REAL (uuid): sempre lê do banco e PROPAGA erro — uma falha de rede/RLS
+  // não pode virar "nenhum check-in" silencioso, escondendo um pendente real.
+  // Aluno seed/protótipo (id curto): usa mock + localStorage.
+  if (supabaseEnabled && isUuid(alunoId)) {
+    const db = await fetchCheckinsByAluno(alunoId, comFotos);
+    return { checkins: db, fromDb: true };
   }
   return {
     checkins: mergeCheckins(getCheckins(alunoId), alunoId),

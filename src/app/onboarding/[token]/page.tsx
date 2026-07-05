@@ -5,44 +5,23 @@ import { useRouter } from "next/navigation";
 import { Button, Input, Segmented } from "@/components/ui";
 import type { SegmentedOption } from "@/components/ui";
 import { planos } from "@/lib/data";
-import { brl, FORMA_PAGAMENTO_LABEL } from "@/lib/format";
+import { brl } from "@/lib/format";
 import { getTestAlunoByToken, completarTestAluno } from "@/lib/testAlunos";
-import { pagamento, type Cobranca } from "@/lib/pagamento";
-import type { FormaPagamento } from "@/lib/types";
+import { cpfValido, mascararCpf } from "@/lib/cpf";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import styles from "./onboarding.module.css";
 
 type Passo = "dados" | "pagamento" | "senha" | "pronto";
-const PASSOS: Passo[] = ["dados", "pagamento", "senha", "pronto"];
 const PASSO_LABEL: Record<Passo, string> = {
   dados: "Seus dados",
   pagamento: "Pagamento",
   senha: "Criar senha",
   pronto: "Tudo pronto",
 };
+type Forma = "cartao" | "pix";
+const FORMA_LABEL: Record<Forma, string> = { cartao: "Cartão", pix: "Pix" };
 
-/** Validação de CPF (11 dígitos + dígitos verificadores). */
-function cpfValido(raw: string): boolean {
-  const cpf = raw.replace(/\D/g, "");
-  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
-  const calc = (base: string, pesoInicial: number) => {
-    let soma = 0;
-    for (let i = 0; i < base.length; i++) soma += Number(base[i]) * (pesoInicial - i);
-    const resto = (soma * 10) % 11;
-    return resto === 10 ? 0 : resto;
-  };
-  return (
-    calc(cpf.slice(0, 9), 10) === Number(cpf[9]) &&
-    calc(cpf.slice(0, 10), 11) === Number(cpf[10])
-  );
-}
-
-function mascararCpf(raw: string): string {
-  const d = raw.replace(/\D/g, "").slice(0, 11);
-  return d
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
-}
+type Convite = { coachNome: string; valor: number; descricao: string };
 
 export default function OnboardingPage({
   params,
@@ -51,15 +30,21 @@ export default function OnboardingPage({
 }) {
   const { token } = use(params);
   const router = useRouter();
+  const emReal = supabaseEnabled;
 
-  // Plano de exemplo — no fluxo real, resolvido a partir do link de compra.
-  const plano = planos[0];
+  // No modo real, a lista de passos não tem "senha" (a conta do aluno é a etapa 2).
+  const passos: Passo[] = emReal
+    ? ["dados", "pagamento", "pronto"]
+    : ["dados", "pagamento", "senha", "pronto"];
 
   const [passo, setPasso] = useState<Passo>("dados");
-  // No fluxo real vem da consultoria do link; placeholder no protótipo.
-  const consultorNome = "seu treinador";
 
-  // Dados
+  // Convite resolvido (modo real) — coach + preço.
+  const [convite, setConvite] = useState<Convite | null>(null);
+  const [carregandoConvite, setCarregandoConvite] = useState(emReal);
+  const [erroConvite, setErroConvite] = useState("");
+
+  // Dados do aluno
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [cpf, setCpf] = useState("");
@@ -67,27 +52,56 @@ export default function OnboardingPage({
   const [erroDados, setErroDados] = useState("");
 
   // Pagamento
-  const [forma, setForma] = useState<FormaPagamento>(plano.formasPagamento[0] ?? "pix");
-  const [cobranca, setCobranca] = useState<Cobranca | null>(null);
+  const [forma, setForma] = useState<Forma>("cartao");
+  const [numeroCartao, setNumeroCartao] = useState("");
+  const [validade, setValidade] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [cep, setCep] = useState("");
+  const [numeroEndereco, setNumeroEndereco] = useState("");
+  const [pix, setPix] = useState<{ copiaCola: string; qrCodeImage: string } | null>(null);
   const [pagando, setPagando] = useState(false);
+  const [erroPagamento, setErroPagamento] = useState("");
 
-  // Senha
+  // Senha (só protótipo)
   const [senha, setSenha] = useState("");
   const [senha2, setSenha2] = useState("");
   const [erroSenha, setErroSenha] = useState("");
   const [criando, setCriando] = useState(false);
   const [alunoId, setAlunoId] = useState<string | null>(null);
 
-  // Prefill a partir do convite (modo protótipo: aluno de teste no localStorage).
+  // Preço/título: modo real vem do convite; protótipo usa um plano de exemplo.
+  const planoProto = planos[0];
+  const valor = emReal ? convite?.valor ?? 0 : planoProto.preco;
+  const titulo = emReal ? convite?.descricao || "Mensalidade" : planoProto.nome;
+  const consultorNome = emReal ? convite?.coachNome || "seu treinador" : "seu treinador";
+
+  // Resolve o convite (real) ou prefill do aluno de teste (protótipo).
   useEffect(() => {
-    const t = getTestAlunoByToken(token);
-    if (t) {
-      setNome(t.nome);
-      setEmail(t.email);
-      setTelefone(t.telefone);
-      setAlunoId(t.id);
+    if (!emReal) {
+      const t = getTestAlunoByToken(token);
+      if (t) {
+        setNome(t.nome);
+        setEmail(t.email);
+        setTelefone(t.telefone);
+        setAlunoId(t.id);
+      }
+      return;
     }
-  }, [token]);
+    let active = true;
+    setCarregandoConvite(true);
+    fetch(`/api/onboarding/resolver?token=${encodeURIComponent(token)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!active) return;
+        if (d.ok) setConvite({ coachNome: d.coachNome, valor: d.valor, descricao: d.descricao });
+        else setErroConvite(d.erro || "Convite inválido.");
+      })
+      .catch(() => active && setErroConvite("Não foi possível carregar o convite."))
+      .finally(() => active && setCarregandoConvite(false));
+    return () => {
+      active = false;
+    };
+  }, [token, emReal]);
 
   function avancarDados() {
     setErroDados("");
@@ -98,26 +112,58 @@ export default function OnboardingPage({
   }
 
   async function pagar() {
-    setPagando(true);
-    try {
-      const c = await pagamento.criarCobranca({
-        valor: plano.preco,
-        forma,
-        descricao: `${plano.nome} · ${nome}`,
-      });
-      setCobranca(c);
-    } finally {
-      setPagando(false);
-    }
-  }
+    setErroPagamento("");
 
-  async function confirmarPagamento() {
-    if (!cobranca || !pagamento.confirmar) return;
+    // Protótipo: sem cobrança real, só avança.
+    if (!emReal) {
+      setPasso("senha");
+      return;
+    }
+
+    // Modo real: valida o cartão (se cartão) e chama a rota de pagamento.
+    let cartao: Record<string, string> | undefined;
+    if (forma === "cartao") {
+      const num = numeroCartao.replace(/\s/g, "");
+      const [mm, aa] = validade.split("/");
+      if (num.length < 13 || !mm || !aa || cvv.length < 3 || cep.replace(/\D/g, "").length < 8 || !numeroEndereco.trim()) {
+        setErroPagamento("Confira os dados do cartão e o endereço de cobrança.");
+        return;
+      }
+      cartao = {
+        number: num,
+        holderName: nome.trim(),
+        expiryMonth: mm.padStart(2, "0"),
+        expiryYear: aa,
+        ccv: cvv,
+        postalCode: cep.replace(/\D/g, ""),
+        addressNumber: numeroEndereco.trim(),
+      };
+    }
+
     setPagando(true);
     try {
-      const pago = await pagamento.confirmar(cobranca.id);
-      setCobranca(pago);
-      setPasso("senha");
+      const res = await fetch("/api/onboarding/pagar", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token,
+          aluno: { nome: nome.trim(), cpf: cpf.replace(/\D/g, ""), email: email.trim(), telefone },
+          forma,
+          cartao,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setErroPagamento(data.erro || "Não foi possível processar o pagamento.");
+        return;
+      }
+      if (data.pix) {
+        setPix(data.pix); // mostra o QR; o aluno paga e a conta vem depois
+      } else {
+        setPasso("pronto");
+      }
+    } catch {
+      setErroPagamento("Falha de conexão. Tente novamente.");
     } finally {
       setPagando(false);
     }
@@ -129,9 +175,6 @@ export default function OnboardingPage({
     if (senha !== senha2) return setErroSenha("As senhas não conferem.");
     setCriando(true);
     try {
-      // PROTÓTIPO: conclui o aluno de teste. No modo Supabase, este passo chama
-      // supabase.auth.signUp({ email, password, options: { data: { role:'aluno',
-      // consultoria_id, aluno_id } } }) — o trigger handle_new_user cria o profile.
       if (alunoId) completarTestAluno(alunoId, { email, telefone });
       setPasso("pronto");
     } finally {
@@ -139,7 +182,32 @@ export default function OnboardingPage({
     }
   }
 
-  const indiceAtual = PASSOS.indexOf(passo);
+  const indiceAtual = passos.indexOf(passo);
+
+  // Estados de carregamento/erro do convite (modo real).
+  if (emReal && carregandoConvite) {
+    return (
+      <div className={styles.canvas}>
+        <div className={styles.card}>
+          <div className={styles.body}>
+            <p className={styles.sub}>Carregando convite…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (emReal && erroConvite) {
+    return (
+      <div className={styles.canvas}>
+        <div className={styles.card}>
+          <div className={styles.body}>
+            <h1 className={styles.title}>Convite indisponível</h1>
+            <p className={styles.sub}>{erroConvite}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.canvas}>
@@ -158,16 +226,13 @@ export default function OnboardingPage({
           )}
         </header>
 
-        {/* Stepper */}
         {passo !== "pronto" && (
           <div className={styles.stepper}>
-            {PASSOS.slice(0, 3).map((p, i) => (
+            {passos.slice(0, -1).map((p, i) => (
               <div
                 key={p}
                 className={styles.step}
-                data-state={
-                  i < indiceAtual ? "done" : i === indiceAtual ? "current" : "todo"
-                }
+                data-state={i < indiceAtual ? "done" : i === indiceAtual ? "current" : "todo"}
               >
                 <span className={styles.stepDot}>
                   {i < indiceAtual ? <i className="ti ti-check" aria-hidden /> : i + 1}
@@ -183,8 +248,8 @@ export default function OnboardingPage({
           <div className={styles.body}>
             <h1 className={styles.title}>Bem-vindo(a)! Vamos começar.</h1>
             <p className={styles.sub}>
-              Você está contratando <strong>{plano.nome}</strong>. Confirme seus
-              dados.
+              Você está contratando <strong>{titulo}</strong>
+              {valor > 0 ? <> por <strong>{brl(valor)}/mês</strong></> : null}. Confirme seus dados.
             </p>
             <Input label="Nome completo" icon="user" value={nome} onChange={(e) => setNome(e.target.value)} />
             <Input label="E-mail" icon="mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -211,51 +276,73 @@ export default function OnboardingPage({
             <h1 className={styles.title}>Pagamento</h1>
             <div className={styles.resumo}>
               <div className={styles.resumoLinha}>
-                <span>{plano.nome}</span>
-                <strong>{brl(plano.preco)}</strong>
+                <span>{titulo}</span>
+                <strong>{brl(valor)}/mês</strong>
               </div>
-              <span className={styles.resumoMeta}>
-                {plano.periodoRecorrencia ? "Cobrança recorrente" : "Pagamento único"}
-              </span>
+              <span className={styles.resumoMeta}>Cobrança recorrente · cancele quando quiser</span>
             </div>
 
-            {!cobranca ? (
+            {pix ? (
               <>
-                <span className={styles.fieldLabel}>Forma de pagamento</span>
-                <Segmented<FormaPagamento>
-                  ariaLabel="Forma de pagamento"
-                  value={forma}
-                  onChange={setForma}
-                  options={plano.formasPagamento.map(
-                    (f): SegmentedOption<FormaPagamento> => ({
-                      value: f,
-                      label: FORMA_PAGAMENTO_LABEL[f],
-                    })
-                  )}
-                />
-                <Button icon="lock" fullWidth onClick={pagar} disabled={pagando}>
-                  {pagando ? "Gerando…" : `Pagar ${brl(plano.preco)}`}
+                <div className={styles.pixBox}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`data:image/png;base64,${pix.qrCodeImage}`}
+                    alt="QR Code do PIX"
+                    style={{ width: 180, height: 180, alignSelf: "center", borderRadius: 8 }}
+                  />
+                  <span className={styles.fieldLabel}>PIX copia e cola</span>
+                  <code className={styles.pixCode}>{pix.copiaCola}</code>
+                </div>
+                <div className={styles.aguardando}>
+                  <i className="ti ti-clock-hour-4" aria-hidden /> Pague o PIX para ativar sua mensalidade.
+                </div>
+                <Button icon="arrow-right" fullWidth onClick={() => setPasso(emReal ? "pronto" : "senha")}>
+                  Concluir
                 </Button>
-                <p className={styles.simNota}>
-                  <i className="ti ti-flask" aria-hidden /> Pagamento simulado
-                  (sem cobrança real).
-                </p>
               </>
             ) : (
               <>
-                {cobranca.forma === "pix" && cobranca.pixCopiaCola && (
-                  <div className={styles.pixBox}>
-                    <span className={styles.fieldLabel}>PIX copia e cola</span>
-                    <code className={styles.pixCode}>{cobranca.pixCopiaCola}</code>
-                  </div>
+                <span className={styles.fieldLabel}>Forma de pagamento</span>
+                <Segmented<Forma>
+                  ariaLabel="Forma de pagamento"
+                  value={forma}
+                  onChange={(f) => {
+                    setForma(f);
+                    setErroPagamento("");
+                  }}
+                  options={(["cartao", "pix"] as Forma[]).map(
+                    (f): SegmentedOption<Forma> => ({ value: f, label: FORMA_LABEL[f] })
+                  )}
+                />
+
+                {emReal && forma === "cartao" && (
+                  <>
+                    <Input label="Número do cartão" icon="credit-card" inputMode="numeric" placeholder="0000 0000 0000 0000" value={numeroCartao} onChange={(e) => setNumeroCartao(e.target.value)} />
+                    <div className={styles.doisCampos}>
+                      <Input label="Validade (MM/AA)" placeholder="12/30" value={validade} onChange={(e) => setValidade(e.target.value)} />
+                      <Input label="CVV" inputMode="numeric" placeholder="123" value={cvv} onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))} />
+                    </div>
+                    <div className={styles.doisCampos}>
+                      <Input label="CEP" inputMode="numeric" placeholder="00000-000" value={cep} onChange={(e) => setCep(e.target.value)} />
+                      <Input label="Número" inputMode="numeric" placeholder="100" value={numeroEndereco} onChange={(e) => setNumeroEndereco(e.target.value)} />
+                    </div>
+                  </>
                 )}
-                <div className={styles.aguardando}>
-                  <i className="ti ti-clock-hour-4" aria-hidden />
-                  Aguardando confirmação do pagamento…
-                </div>
-                <Button icon="check" fullWidth onClick={confirmarPagamento} disabled={pagando}>
-                  {pagando ? "Confirmando…" : "Já paguei (simular confirmação)"}
+
+                {erroPagamento && <p className={styles.erro}>{erroPagamento}</p>}
+                <Button icon="lock" fullWidth onClick={pagar} disabled={pagando}>
+                  {pagando
+                    ? "Processando…"
+                    : forma === "pix"
+                    ? "Gerar PIX"
+                    : `Pagar ${brl(valor)}/mês`}
                 </Button>
+                {!emReal && (
+                  <p className={styles.simNota}>
+                    <i className="ti ti-flask" aria-hidden /> Pagamento simulado (sem cobrança real).
+                  </p>
+                )}
               </>
             )}
             <button type="button" className={styles.voltar} onClick={() => setPasso("dados")}>
@@ -264,13 +351,11 @@ export default function OnboardingPage({
           </div>
         )}
 
-        {/* PASSO 3 — SENHA */}
+        {/* PASSO 3 — SENHA (só protótipo) */}
         {passo === "senha" && (
           <div className={styles.body}>
             <h1 className={styles.title}>Crie sua senha</h1>
-            <p className={styles.sub}>
-              Pagamento confirmado ✅ Agora crie uma senha para acessar o app.
-            </p>
+            <p className={styles.sub}>Agora crie uma senha para acessar o app.</p>
             <Input label="E-mail" icon="mail" value={email} disabled readOnly />
             <Input label="Senha" icon="lock" type="password" placeholder="mín. 6 caracteres" value={senha} onChange={(e) => setSenha(e.target.value)} />
             <Input label="Confirmar senha" icon="lock-check" type="password" value={senha2} onChange={(e) => setSenha2(e.target.value)} />
@@ -285,9 +370,8 @@ export default function OnboardingPage({
         {passo === "pronto" && (
           <ProntoStep
             nome={nome}
-            onAbrir={() =>
-              router.push(`/aluno${alunoId ? `?aluno=${alunoId}` : ""}`)
-            }
+            emReal={emReal}
+            onAbrir={() => router.push(`/aluno${alunoId ? `?aluno=${alunoId}` : ""}`)}
           />
         )}
       </div>
@@ -296,7 +380,15 @@ export default function OnboardingPage({
 }
 
 /** Passo final: sucesso + instalar app (PWA) + abrir a área do aluno. */
-function ProntoStep({ nome, onAbrir }: { nome: string; onAbrir: () => void }) {
+function ProntoStep({
+  nome,
+  emReal,
+  onAbrir,
+}: {
+  nome: string;
+  emReal: boolean;
+  onAbrir: () => void;
+}) {
   const deferred = useRef<{ prompt: () => void } | null>(null);
   const [podeInstalar, setPodeInstalar] = useState(false);
 
@@ -310,10 +402,6 @@ function ProntoStep({ nome, onAbrir }: { nome: string; onAbrir: () => void }) {
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
 
-  function instalar() {
-    deferred.current?.prompt();
-  }
-
   const primeiro = nome.split(" ")[0] || "";
 
   return (
@@ -323,11 +411,12 @@ function ProntoStep({ nome, onAbrir }: { nome: string; onAbrir: () => void }) {
       </span>
       <h1 className={styles.prontoTitle}>Tudo certo{primeiro ? `, ${primeiro}` : ""}!</h1>
       <p className={styles.sub}>
-        Sua conta está criada. Instale o app na tela inicial para acessar seu
-        treino, dieta e check-ins.
+        {emReal
+          ? "Pagamento registrado! Você vai receber os dados de acesso ao app assim que o pagamento confirmar."
+          : "Sua conta está criada. Instale o app na tela inicial para acessar seu treino, dieta e check-ins."}
       </p>
       {podeInstalar ? (
-        <Button icon="download" fullWidth onClick={instalar}>
+        <Button icon="download" fullWidth onClick={() => deferred.current?.prompt()}>
           Instalar o app
         </Button>
       ) : (
@@ -336,9 +425,11 @@ function ProntoStep({ nome, onAbrir }: { nome: string; onAbrir: () => void }) {
           “Compartilhar” → “Adicionar à Tela de Início”.
         </p>
       )}
-      <Button variant="outline" icon="arrow-right" fullWidth onClick={onAbrir}>
-        Abrir minha área agora
-      </Button>
+      {!emReal && (
+        <Button variant="outline" icon="arrow-right" fullWidth onClick={onAbrir}>
+          Abrir minha área agora
+        </Button>
+      )}
     </div>
   );
 }

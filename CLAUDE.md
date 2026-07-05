@@ -6,7 +6,7 @@ Dashboard web do prestador (consultoria fitness). Next.js App Router. App do alu
 - **Next.js 16 (App Router) + React 19 + TypeScript.** Sem Tailwind.
 - **Estilo:** CSS Modules + variáveis CSS. Todos os tokens em `src/app/globals.css` (§1 do spec). **Nunca** use cores hardcoded — sempre `var(--color-*)`, `var(--space-*)`, `var(--border-radius-*)`.
 - **Ícones:** Tabler webfont via CDN (`<i className="ti ti-NOME" />`). Componentes recebem o nome sem o prefixo `ti ti-`.
-- **Fontes:** Inter (corpo, `--font-sans`), IBM Plex Mono (rótulos/eyebrows/URLs, uppercase, `--font-mono`). Carregadas via `<link>` no `layout.tsx`.
+- **Fontes:** Hanken Grotesk (corpo/display, `--font-sans`), Space Grotesk (rótulos/eyebrows/dados, uppercase, `--font-mono`). Carregadas via `<link>` no `layout.tsx`.
 - **Path alias:** `@/*` → `src/*`.
 - Server Components por padrão; `"use client"` só quando há estado/interação.
 

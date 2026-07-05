@@ -24,6 +24,7 @@ import {
 import { brl, dataCurta } from "@/lib/format";
 import type { Transacao } from "@/lib/types";
 import type { BadgeVariant } from "@/components/ui/StatusBadge";
+import { AtivarRecebimento } from "./AtivarRecebimento";
 import styles from "./financeiro.module.css";
 
 type FiltroExtrato = "todos" | "entrada" | "saida";
@@ -63,6 +64,9 @@ export default function FinanceiroPage() {
         title="Financeiro"
         subtitle="Saldo, recebimentos e extrato"
       />
+
+      {/* Fluxo 2 — ativar recebimento (subconta Asaas) */}
+      <AtivarRecebimento />
 
       {/* Métricas */}
       <div className={styles.metrics}>

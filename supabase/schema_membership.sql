@@ -682,7 +682,10 @@ revoke update on public.alunos from authenticated;
 grant update (
   plano_id, nome, cpf, email, telefone, objetivo, status_pagamento,
   proximo_vencimento, inicio, peso_inicial, peso_atual, aderencia_treino,
-  checkin_pendente, aguardando_protocolo
+  checkin_pendente, aguardando_protocolo,
+  -- colunas de "Solicitar check-in" (criadas em schema_checkin.sql): sem elas,
+  -- solicitarCheckin/cancelarSolicitacaoCheckin quebram com "permission denied".
+  checkin_solicitado, checkin_solicitado_em, checkin_solicitacao_msg
 ) on public.alunos to authenticated;
 -- (consultoria_id de fora => so o trigger sync_aluno_consultoria_cache escreve)
 

@@ -86,14 +86,14 @@ export default function StyleguidePage() {
           <div className={styles.typeRows}>
             <div>
               <span className="mono-label">eyebrow / mono-label</span>
-              <p className={styles.typeBig}>IBM Plex Sans — título 26</p>
+              <p className={styles.typeBig}>Hanken Grotesk — título 26</p>
             </div>
             <p style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>
-              Corpo em IBM Plex Sans 14px. Rótulos, eyebrows e URLs em IBM Plex
-              Mono (uppercase, letter-spacing leve).
+              Corpo em Hanken Grotesk 14px. Rótulos, eyebrows e URLs em Space
+              Grotesk (uppercase, letter-spacing leve).
             </p>
             <p style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-              revo.app/p/hipertrofia-online · IBM Plex Mono
+              revo.app/p/hipertrofia-online · Space Grotesk
             </p>
           </div>
         </Block>
