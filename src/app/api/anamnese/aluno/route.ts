@@ -53,10 +53,40 @@ export async function POST(request: Request) {
   if ("erro" in r) return NextResponse.json({ erro: r.erro }, { status: r.status });
   const body = (await request.json().catch(() => ({}))) as { respostas?: unknown };
 
+  // respostas tem que ser um objeto simples { [perguntaId]: valor }.
+  const respostas = body.respostas;
+  if (typeof respostas !== "object" || respostas === null || Array.isArray(respostas)) {
+    return NextResponse.json({ erro: "respostas inválidas" }, { status: 400 });
+  }
+  const respMap = respostas as Record<string, unknown>;
+
   const admin = createAdminClient();
+  // Só aceita respostas quando a consultoria tem anamnese ativa — e valida no
+  // servidor que as obrigatórias foram respondidas (o cliente não é confiável).
+  const { data: cons } = await admin
+    .from("consultorias")
+    .select("anamnese_ativa, anamnese_perguntas")
+    .eq("id", r.consultoriaId)
+    .maybeSingle();
+  if (cons?.anamnese_ativa !== true) {
+    return NextResponse.json({ erro: "anamnese não está ativa" }, { status: 409 });
+  }
+  const perguntas = Array.isArray(cons.anamnese_perguntas)
+    ? (cons.anamnese_perguntas as { id: string; texto?: string; obrigatoria?: boolean }[])
+    : [];
+  const faltando = perguntas.find(
+    (p) => p.obrigatoria && !String(respMap[p.id] ?? "").trim()
+  );
+  if (faltando) {
+    return NextResponse.json(
+      { erro: `responda: ${faltando.texto || "pergunta obrigatória"}` },
+      { status: 400 }
+    );
+  }
+
   const { error } = await admin
     .from("alunos")
-    .update({ anamnese_respondida: true, anamnese_respostas: body.respostas ?? {} })
+    .update({ anamnese_respondida: true, anamnese_respostas: respMap })
     .eq("id", r.alunoId);
   if (error) return NextResponse.json({ erro: "não foi possível salvar" }, { status: 500 });
   return NextResponse.json({ ok: true });

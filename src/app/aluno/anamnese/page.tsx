@@ -183,7 +183,7 @@ function CampoResposta({
     );
   }
   if (pergunta.tipo === "escolha") {
-    const opcoes = (pergunta.opcoes ?? []).filter(Boolean);
+    const opcoes = (pergunta.opcoes ?? []).map((o) => o.trim()).filter(Boolean);
     if (opcoes.length === 0) {
       return (
         <Input

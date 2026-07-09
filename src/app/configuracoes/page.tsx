@@ -30,11 +30,12 @@ const SECOES = [
   { id: "notificacoes", label: "Notificações", icon: "bell" },
 ];
 
+// "foto" ficou de fora: a tela do aluno não captura upload na anamnese (só no
+// check-in), então uma pergunta de foto viraria um campo de texto inútil.
 const TIPO_PERGUNTA_OPTS: { label: string; value: TipoPergunta }[] = [
   { label: "Texto", value: "texto" },
   { label: "Número", value: "numero" },
   { label: "Escolha", value: "escolha" },
-  { label: "Foto", value: "foto" },
 ];
 
 const CONSELHO_OPTS = [
@@ -120,9 +121,11 @@ export default function ConfiguracoesPage() {
   // checkout
   const [cor, setCor] = useState(coach.checkoutGlobal.cor);
 
-  // anamnese
+  // anamnese — em modo real começa vazia e carrega do banco; em protótipo usa o
+  // template de exemplo. Assim uma consultoria nova/opt-out não vê as perguntas
+  // mock como se fossem dela (e não as persiste sem querer ao salvar).
   const [perguntas, setPerguntas] = useState<PerguntaAnamnese[]>(
-    anamneseTemplate.perguntas
+    supabaseEnabled ? [] : anamneseTemplate.perguntas
   );
   const [anamneseAtiva, setAnamneseAtiva] = useState<boolean | null>(null);
   const [salvandoAnam, setSalvandoAnam] = useState(false);
@@ -135,13 +138,28 @@ export default function ConfiguracoesPage() {
       .then((r) => r.json())
       .then((d) => {
         setAnamneseAtiva(d.ativa ?? null);
-        if (Array.isArray(d.perguntas) && d.perguntas.length) setPerguntas(d.perguntas);
+        // Reflete sempre o que o banco tem — lista vazia limpa o editor.
+        setPerguntas(Array.isArray(d.perguntas) ? d.perguntas : []);
       })
       .catch(() => {});
   }, []);
 
   async function salvarAnamnese() {
     setAnamMsg("");
+    // Não salva perguntas sem texto ou perguntas de escolha sem nenhuma opção —
+    // virariam campos inválidos/inutilizáveis pro aluno.
+    if (perguntas.some((p) => !p.texto.trim())) {
+      setAnamMsg("Preencha o texto de todas as perguntas.");
+      return;
+    }
+    if (
+      perguntas.some(
+        (p) => p.tipo === "escolha" && !(p.opcoes ?? []).some((o) => o.trim())
+      )
+    ) {
+      setAnamMsg("Perguntas de escolha precisam de ao menos uma opção.");
+      return;
+    }
     setSalvandoAnam(true);
     try {
       if (!supabaseEnabled) {
@@ -513,6 +531,17 @@ export default function ConfiguracoesPage() {
                               Obrigatória
                             </label>
                           </div>
+                          {p.tipo === "escolha" && (
+                            <Input
+                              value={(p.opcoes ?? []).join(",")}
+                              onChange={(e) =>
+                                updatePergunta(p.id, {
+                                  opcoes: e.target.value.split(","),
+                                })
+                              }
+                              placeholder="Opções separadas por vírgula (ex.: Sedentário, Leve, Moderado)"
+                            />
+                          )}
                         </div>
                       </div>
                     )}
@@ -529,7 +558,15 @@ export default function ConfiguracoesPage() {
                   </Button>
                 </div>
                 <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", alignItems: "center" }}>
-                  <Button icon="check" onClick={salvarAnamnese} disabled={salvandoAnam || perguntas.length === 0}>
+                  <Button
+                    icon="check"
+                    onClick={salvarAnamnese}
+                    disabled={
+                      salvandoAnam ||
+                      perguntas.length === 0 ||
+                      perguntas.some((p) => !p.texto.trim())
+                    }
+                  >
                     {salvandoAnam ? "Salvando…" : "Salvar anamnese"}
                   </Button>
                   <Button variant="ghost" icon="x" onClick={naoQueroAnamnese} disabled={salvandoAnam}>

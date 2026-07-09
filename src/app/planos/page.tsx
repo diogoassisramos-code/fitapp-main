@@ -19,7 +19,7 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { listPlanos } from "@/lib/data";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
-import { createClient } from "@/utils/supabase/client";
+import { useSetupGate } from "@/lib/useSetupGate";
 import {
   fetchPlanosConsultor,
   savePlano,
@@ -89,45 +89,9 @@ export default function PlanosPage() {
   const [excluindo, setExcluindo] = useState<Plano | null>(null);
 
   // Gating: só cria plano com recebimento ativado E anamnese decidida (criada
-  // ou opt-out). null = ainda carregando (não bloqueia pra não piscar).
-  const [setup, setSetup] = useState<{ recebimentoOk: boolean; anamneseOk: boolean } | null>(null);
-  useEffect(() => {
-    if (!podeReal) {
-      setSetup({ recebimentoOk: true, anamneseOk: true });
-      return;
-    }
-    (async () => {
-      try {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        let recebimentoOk = false;
-        if (user) {
-          const { data: prof } = await supabase
-            .from("profiles")
-            .select("consultoria_id")
-            .eq("id", user.id)
-            .maybeSingle();
-          if (prof?.consultoria_id) {
-            const { data: cons } = await supabase
-              .from("consultorias")
-              .select("asaas_onboarding_status")
-              .eq("id", prof.consultoria_id)
-              .maybeSingle();
-            const st = cons?.asaas_onboarding_status;
-            recebimentoOk = !!st && st !== "nao_iniciado";
-          }
-        }
-        const anam = await fetch("/api/anamnese").then((r) => r.json()).catch(() => ({}));
-        const anamneseOk = anam?.ativa === true || anam?.ativa === false;
-        setSetup({ recebimentoOk, anamneseOk });
-      } catch {
-        setSetup({ recebimentoOk: true, anamneseOk: true }); // falha não bloqueia
-      }
-    })();
-  }, [podeReal]);
-  const setupOk = setup ? setup.recebimentoOk && setup.anamneseOk : true;
+  // ou opt-out). Regra centralizada em useSetupGate (mesma do /planos/novo).
+  const gate = useSetupGate();
+  const setupOk = gate.setupOk;
 
   const carregar = useCallback(async () => {
     if (!podeReal) return;
@@ -280,7 +244,7 @@ export default function PlanosPage() {
         }
       />
 
-      {setup && !setupOk && (
+      {!gate.loading && !setupOk && (
         <Card padded>
           <h3 style={{ margin: "0 0 var(--space-2)", fontSize: 16 }}>
             Configure antes de criar planos
@@ -290,8 +254,8 @@ export default function PlanosPage() {
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             {[
-              { ok: setup.recebimentoOk, titulo: "Ative seus recebimentos", desc: "Crie sua conta de recebimento pra receber dos alunos.", href: "/financeiro", cta: "Ativar" },
-              { ok: setup.anamneseOk, titulo: "Configure a anamnese", desc: "Crie a anamnese — ou marque que não vai usar — em Configurações.", href: "/configuracoes", cta: "Configurar" },
+              { ok: gate.recebimentoOk, titulo: "Ative seus recebimentos", desc: "Crie sua conta de recebimento pra receber dos alunos.", href: "/financeiro", cta: "Ativar" },
+              { ok: gate.anamneseOk, titulo: "Configure a anamnese", desc: "Crie a anamnese — ou marque que não vai usar — em Configurações.", href: "/configuracoes", cta: "Configurar" },
             ].map((passo) => (
               <div key={passo.titulo} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <i
@@ -346,9 +310,15 @@ export default function PlanosPage() {
               title="Nenhum plano criado"
               description="Crie seu primeiro plano para começar a receber assinantes."
               action={
-                <Button icon="plus" href="/planos/novo">
-                  Criar plano
-                </Button>
+                setupOk ? (
+                  <Button icon="plus" href="/planos/novo">
+                    Criar plano
+                  </Button>
+                ) : (
+                  <Button icon="plus" disabled>
+                    Criar plano
+                  </Button>
+                )
               }
             />
           </div>

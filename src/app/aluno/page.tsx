@@ -31,9 +31,11 @@ export default function AlunoHomePage() {
     if (sessao.modo !== "real") return;
     let active = true;
     fetch("/api/anamnese/aluno")
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : { pendente: false }))
       .then((d) => active && setAnamnesePendente(!!d.pendente))
-      .catch(() => {});
+      // Falha de rede/sessão não pode travar o home em "Carregando…" — cai pra
+      // "não pendente" e libera o check-in.
+      .catch(() => active && setAnamnesePendente(false));
     return () => {
       active = false;
     };
