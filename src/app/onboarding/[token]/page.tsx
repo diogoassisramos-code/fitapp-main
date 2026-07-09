@@ -8,6 +8,13 @@ import { planos } from "@/lib/data";
 import { brl } from "@/lib/format";
 import { getTestAlunoByToken, completarTestAluno } from "@/lib/testAlunos";
 import { cpfValido, mascararCpf } from "@/lib/cpf";
+import {
+  mascararTelefone,
+  telefoneValido,
+  mascararCartao,
+  mascararValidade,
+  mascararCep,
+} from "@/lib/mascaras";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient } from "@/utils/supabase/client";
 import styles from "./onboarding.module.css";
@@ -122,8 +129,8 @@ export default function OnboardingPage({
     if (!nome.trim()) return setErroDados("Informe seu nome.");
     if (!/.+@.+\..+/.test(email)) return setErroDados("Informe um e-mail válido.");
     if (!cpfValido(cpf)) return setErroDados("CPF inválido.");
-    if (telefone.replace(/\D/g, "").length < 10)
-      return setErroDados("Informe seu celular com DDD (o Asaas exige para o pagamento).");
+    if (!telefoneValido(telefone))
+      return setErroDados("Informe um celular válido com DDD, ex.: (11) 99999-9999.");
     // Já tem conta na Revo? (por e-mail OU CPF). Se sim, o fim do fluxo vira login.
     if (emReal) {
       setChecando(true);
@@ -368,7 +375,7 @@ export default function OnboardingPage({
               onChange={(e) => setCpf(mascararCpf(e.target.value))}
               hint="Seu CPF é a sua identidade no app — vale mesmo se você trocar de treinador."
             />
-            <Input label="Celular" icon="phone" inputMode="tel" placeholder="(11) 99999-9999" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
+            <Input label="Celular" icon="phone" inputMode="tel" placeholder="(11) 99999-9999" value={telefone} onChange={(e) => setTelefone(mascararTelefone(e.target.value))} />
             {erroDados && <p className={styles.erro}>{erroDados}</p>}
             <Button icon="arrow-right" fullWidth onClick={avancarDados} disabled={checando}>
               {checando ? "Verificando…" : "Continuar"}
@@ -440,14 +447,14 @@ export default function OnboardingPage({
 
                 {emReal && forma === "cartao" && (
                   <>
-                    <Input label="Número do cartão" icon="credit-card" inputMode="numeric" placeholder="0000 0000 0000 0000" value={numeroCartao} onChange={(e) => setNumeroCartao(e.target.value)} />
+                    <Input label="Número do cartão" icon="credit-card" inputMode="numeric" placeholder="0000 0000 0000 0000" value={numeroCartao} onChange={(e) => setNumeroCartao(mascararCartao(e.target.value))} />
                     <div className={styles.doisCampos}>
-                      <Input label="Validade (MM/AA)" placeholder="12/30" value={validade} onChange={(e) => setValidade(e.target.value)} />
+                      <Input label="Validade (MM/AA)" placeholder="12/30" inputMode="numeric" value={validade} onChange={(e) => setValidade(mascararValidade(e.target.value))} />
                       <Input label="CVV" inputMode="numeric" placeholder="123" value={cvv} onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))} />
                     </div>
                     <div className={styles.doisCampos}>
-                      <Input label="CEP" inputMode="numeric" placeholder="00000-000" value={cep} onChange={(e) => setCep(e.target.value)} />
-                      <Input label="Número" inputMode="numeric" placeholder="100" value={numeroEndereco} onChange={(e) => setNumeroEndereco(e.target.value)} />
+                      <Input label="CEP" inputMode="numeric" placeholder="00000-000" value={cep} onChange={(e) => setCep(mascararCep(e.target.value))} />
+                      <Input label="Número" inputMode="numeric" placeholder="100" value={numeroEndereco} onChange={(e) => setNumeroEndereco(e.target.value.replace(/\D/g, ""))} />
                     </div>
                   </>
                 )}

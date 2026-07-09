@@ -260,11 +260,8 @@ export default async function FichaAlunoPage({
           </div>
         </div>
         <div className={styles.heroActions}>
-          <Button variant="outline" icon="message">
+          <Button variant="outline" icon="message" href="#conversa">
             Conversar
-          </Button>
-          <Button variant="outline" icon="edit">
-            Editar
           </Button>
         </div>
       </header>
@@ -443,7 +440,7 @@ export default async function FichaAlunoPage({
         </Card>
 
         {/* Conversa */}
-        <Card className={styles.chatCard}>
+        <Card id="conversa" className={styles.chatCard} style={{ scrollMarginTop: 80 }}>
           <CardHeader
             title="Conversa"
             action={

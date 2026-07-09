@@ -441,6 +441,22 @@
   color: var(--color-text-tertiary);
 }
 
+.inputEye {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  color: var(--color-text-tertiary);
+  transition: color var(--transition);
+}
+.inputEye:hover {
+  color: var(--color-text-secondary);
+}
+
 .textarea {
   padding: 10px var(--space-3);
   background: var(--color-background-primary);

@@ -60,6 +60,29 @@ export async function GET() {
     return NextResponse.json({ erro: "subconta ainda não criada" }, { status: 409 });
   }
 
+  // DEV/SANDBOX: bypass do KYC — força "aprovado" pra testar o fluxo liberado sem
+  // a jornada real (a tela hospedada do Asaas não renderiza no sandbox). Ligue com
+  // ASAAS_KYC_BYPASS=1 no .env.local. NUNCA deixar ligado em produção.
+  if (process.env.ASAAS_KYC_BYPASS === "1") {
+    if (cons.asaas_onboarding_status !== "aprovado") {
+      const admin = createAdminClient();
+      await admin
+        .from("consultorias")
+        .update({ asaas_onboarding_status: "aprovado" })
+        .eq("id", cons.id);
+    }
+    return NextResponse.json({
+      ok: true,
+      status: "aprovado",
+      geral: "APPROVED",
+      onboardingUrl: null,
+      qrCodeDataUrl: null,
+      documentos: [],
+      pronto: true,
+      bypass: true,
+    });
+  }
+
   try {
     // 2) Status agregado — o webhook também mantém isso, mas consultar aqui deixa
     //    a UI responsiva (e cobre o caso do webhook não estar configurado ainda).

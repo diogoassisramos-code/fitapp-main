@@ -149,6 +149,10 @@ export type FinanceiroReal = {
   saldo: number;
   aLiberar: number;
   recebidoMes: number;
+  /** Mensalidades recebidas na janela rolante dos últimos 30 dias. */
+  faturamento30d: number;
+  /** Variação vs. os 30 dias anteriores (ex.: "+12%"); "" se não dá pra comparar. */
+  faturamento30dDelta: string;
   mrr: number;
   alunosAtivos: number;
   inadimplenciaValor: number;
@@ -174,7 +178,7 @@ export async function fetchFinanceiro(): Promise<FinanceiroReal> {
   const supabase = createClient();
   const cid = await getMyConsultoriaId();
   const vazio: FinanceiroReal = {
-    saldo: 0, aLiberar: 0, recebidoMes: 0, mrr: 0,
+    saldo: 0, aLiberar: 0, recebidoMes: 0, faturamento30d: 0, faturamento30dDelta: "", mrr: 0,
     alunosAtivos: 0, inadimplenciaValor: 0, inadimplenciaAlunos: 0,
     faturamento: [], extrato: [],
   };
@@ -218,6 +222,27 @@ export async function fetchFinanceiro(): Promise<FinanceiroReal> {
     .slice(-6)
     .map(([chave, valor]) => ({ mes: MESES_CURTOS[Number(chave.slice(5, 7)) - 1], valor }));
 
+  // Faturamento dos últimos 30 dias (janela rolante) + variação vs. os 30 antes.
+  const MS30 = 30 * 24 * 3600 * 1000;
+  const agoraMs = Date.now();
+  const somaJanela = (iniMs: number, fimMs: number) =>
+    pagamentos
+      .filter((p) => ["CONFIRMED", "RECEIVED", "confirmado", "recebido"].includes(String(p.status)))
+      .filter((p) => {
+        const d = p.recebido_em ?? p.confirmado_em ?? p.criado_em;
+        const t = d ? new Date(d).getTime() : NaN;
+        return t >= iniMs && t < fimMs;
+      })
+      .reduce((s, p) => s + Number(p.valor ?? 0), 0);
+  const faturamento30d = somaJanela(agoraMs - MS30, agoraMs);
+  const faturamentoAnterior = somaJanela(agoraMs - 2 * MS30, agoraMs - MS30);
+  const faturamento30dDelta =
+    faturamentoAnterior > 0
+      ? `${faturamento30d >= faturamentoAnterior ? "+" : ""}${Math.round(
+          ((faturamento30d - faturamentoAnterior) / faturamentoAnterior) * 100
+        )}%`
+      : "";
+
   const extrato = pagamentos.slice(0, 30).map((p) => ({
     id: p.id,
     alunoNome: p.alunos?.nome ?? "Aluno",
@@ -231,6 +256,8 @@ export async function fetchFinanceiro(): Promise<FinanceiroReal> {
     saldo: Number(cons?.saldo ?? 0),
     aLiberar: Number(cons?.a_liberar ?? 0),
     recebidoMes,
+    faturamento30d,
+    faturamento30dDelta,
     mrr: alunosAtivos * mensalidade,
     alunosAtivos,
     inadimplenciaValor: inad.length * mensalidade,

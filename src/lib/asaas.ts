@@ -354,6 +354,13 @@ export function statusSubconta(apiKey: string): Promise<AsaasAccountStatus> {
   return asaasJson("/myAccount/status", {}, apiKey);
 }
 
+export type AsaasSaldo = { balance: number };
+
+/** Saldo DISPONÍVEL da subconta no Asaas (autentica com a apiKey da subconta). */
+export function saldoSubconta(apiKey: string): Promise<AsaasSaldo> {
+  return asaasJson("/finance/balance", {}, apiKey);
+}
+
 /**
  * Documentos KYC pendentes da subconta. IMPORTANTE: aguardar ~15s após criar a
  * conta antes de chamar (validação junto à Receita) — antes disso pode vir vazio

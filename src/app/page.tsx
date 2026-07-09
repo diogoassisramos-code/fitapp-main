@@ -16,10 +16,11 @@ import {
   ListRow,
   Avatar,
   EmptyState,
+  BarChart,
 } from "@/components/ui";
 import { listAlunos, stats, planoNome } from "@/lib/data";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
-import { fetchAlunos, fetchConsultoriaResumo } from "@/lib/db";
+import { fetchAlunos, fetchConsultoriaResumo, fetchFinanceiro, type FinanceiroReal } from "@/lib/db";
 import { useConsultor } from "@/lib/useConsultor";
 import type { Aluno } from "@/lib/types";
 import {
@@ -58,6 +59,7 @@ export default function ResumoPage() {
     supabaseEnabled ? [] : listAlunos()
   );
   const [saldo, setSaldo] = useState<number>(supabaseEnabled ? 0 : stats.saldo);
+  const [fin, setFin] = useState<FinanceiroReal | null>(null);
   const [carregando, setCarregando] = useState(supabaseEnabled);
   const [erro, setErro] = useState(false);
   const [tentativa, setTentativa] = useState(0);
@@ -68,11 +70,12 @@ export default function ResumoPage() {
     setErro(false);
     setCarregando(true);
     // Falha (rede/RLS/sessão) mostra erro com retry — não "0 alunos / saldo R$ 0".
-    Promise.all([fetchAlunos(), fetchConsultoriaResumo()])
-      .then(([as, r]) => {
+    Promise.all([fetchAlunos(), fetchConsultoriaResumo(), fetchFinanceiro()])
+      .then(([as, r, f]) => {
         if (!active) return;
         setAlunos(as);
         setSaldo(r.saldo);
+        setFin(f);
       })
       .catch(() => active && setErro(true))
       .finally(() => active && setCarregando(false));
@@ -82,8 +85,8 @@ export default function ResumoPage() {
   }, [tentativa]);
 
   // KPIs do topo + triagem: derivados dos dados REAIS (0 numa conta nova) quando
-  // há Supabase; senão, os números do mock. Faturamento real depende da tabela
-  // de transações/gateway (ainda não existe) — por isso 0 pra conta nova.
+  // há Supabase; senão, os números do mock. O faturamento 30d vem de fetchFinanceiro
+  // (agrega a tabela `pagamentos`, fluxo mensalidade) — 0/vazio numa conta nova.
   const mesRef = (() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -94,8 +97,8 @@ export default function ResumoPage() {
         totalAlunos: alunos.length,
         novosNoMes: alunos.filter((a) => (a.inicio ?? "").startsWith(mesRef))
           .length,
-        faturamento30d: 0,
-        faturamento30dDelta: "",
+        faturamento30d: fin?.faturamento30d ?? 0,
+        faturamento30dDelta: fin?.faturamento30dDelta ?? "",
         saldo,
         checkinsParaResponder: alunos.filter((a) => a.checkinPendente).length,
         pagamentosAtrasados: alunos.filter(
@@ -185,7 +188,10 @@ export default function ResumoPage() {
           value={brl(resumo.faturamento30d)}
           delta={
             resumo.faturamento30dDelta
-              ? { value: resumo.faturamento30dDelta, dir: "up" }
+              ? {
+                  value: resumo.faturamento30dDelta,
+                  dir: resumo.faturamento30dDelta.startsWith("-") ? "down" : "up",
+                }
               : undefined
           }
           icon="trending-up"
@@ -206,6 +212,30 @@ export default function ResumoPage() {
           }
         />
       </section>
+
+      {supabaseEnabled && (
+        <section>
+          <Card>
+            <CardHeader title="Faturamento" />
+            <CardBody>
+              {(fin?.faturamento?.length ?? 0) >= 2 ? (
+                <BarChart
+                  data={(fin?.faturamento ?? []).map((f) => ({ label: f.mes, value: f.valor }))}
+                  height={180}
+                  formatValue={brl}
+                />
+              ) : (
+                <EmptyState
+                  compact
+                  icon="chart-bar"
+                  title="Sem histórico ainda"
+                  description="O gráfico de faturamento aparece quando houver pagamentos em mais de um mês."
+                />
+              )}
+            </CardBody>
+          </Card>
+        </section>
+      )}
 
       <section className={styles.triagem}>
         <div className={styles.sectionHead}>

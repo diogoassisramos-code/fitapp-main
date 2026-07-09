@@ -70,6 +70,19 @@ export function Sidebar({
         })}
       </nav>
 
+      {/* Preview da área do aluno (o coach vê o app como o aluno vê) — nova aba
+          pra não sair do painel. */}
+      <Link
+        href="/aluno"
+        target="_blank"
+        rel="noreferrer"
+        className={styles.navItem}
+        onClick={onCloseMobile}
+      >
+        <i className="ti ti-device-mobile" aria-hidden />
+        <span className={styles.label}>Ver como aluno</span>
+      </Link>
+
       {/* Acesso ao painel administrativo da plataforma */}
       <Link href="/admin" className={styles.navItem} onClick={onCloseMobile}>
         <i className="ti ti-shield-cog" aria-hidden />

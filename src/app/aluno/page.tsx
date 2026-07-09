@@ -12,6 +12,7 @@ import styles from "./aluno.module.css";
 export default function AlunoHomePage() {
   const sessao = useAlunoSessao();
   const [checkins, setCheckins] = useState<CheckIn[] | null>(null);
+  const [anamnesePendente, setAnamnesePendente] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!sessao.alunoId) return;
@@ -24,7 +25,24 @@ export default function AlunoHomePage() {
     };
   }, [sessao.alunoId, sessao.modo]);
 
-  const carregando = sessao.loading || checkins === null;
+  // 1º acesso: se a consultoria tem anamnese e o aluno ainda não respondeu,
+  // ela aparece no lugar do check-in até ser respondida.
+  useEffect(() => {
+    if (sessao.modo !== "real") return;
+    let active = true;
+    fetch("/api/anamnese/aluno")
+      .then((r) => r.json())
+      .then((d) => active && setAnamnesePendente(!!d.pendente))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [sessao.modo]);
+
+  // Em modo real esperamos também o status da anamnese resolver, pra não
+  // piscar o card de check-in antes de trocar pela anamnese pendente.
+  const anamneseResolvida = sessao.modo !== "real" || anamnesePendente !== null;
+  const carregando = sessao.loading || checkins === null || !anamneseResolvida;
   const lista = checkins ?? [];
   const ultimo = lista.length ? lista[lista.length - 1] : undefined;
   const semanaAtual = ultimo ? ultimo.semana + 1 : 1;
@@ -47,10 +65,25 @@ export default function AlunoHomePage() {
         </p>
       </section>
 
-      {/* Card principal: check-in da semana */}
+      {/* Card principal: anamnese (1º acesso) ou check-in da semana */}
       <div className={styles.heroCard}>
         {carregando ? (
           <p className={styles.loading}>Carregando…</p>
+        ) : anamnesePendente ? (
+          <>
+            <span className={styles.heroEyebrow}>
+              <i className="ti ti-clipboard-list" aria-hidden />
+              Antes de começar
+            </span>
+            <h2 className={styles.heroTitle}>Responda sua anamnese</h2>
+            <p className={styles.heroText}>
+              Seu treinador precisa te conhecer pra montar o plano. Leva 2 minutos —
+              depois disso você libera o check-in.
+            </p>
+            <Button href="/aluno/anamnese" icon="clipboard-list" fullWidth>
+              Responder anamnese
+            </Button>
+          </>
         ) : aguardando ? (
           <>
             <span className={styles.heroEyebrow}>

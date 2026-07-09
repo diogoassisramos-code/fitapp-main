@@ -57,19 +57,28 @@ export default function FinanceiroPage() {
   const [periodo, setPeriodo] = useState<"6m" | "12m">("6m");
   const [filtroExtrato, setFiltroExtrato] = useState<FiltroExtrato>("todos");
 
+  const [saldoAsaas, setSaldoAsaas] = useState<number | null>(null);
+
   useEffect(() => {
     if (!emReal) return;
     let active = true;
     fetchFinanceiro()
       .then((d) => active && setReal(d))
       .catch(() => {});
+    // Saldo REAL da subconta no Asaas (o split cai direto na wallet do coach).
+    fetch("/api/asaas/saldo")
+      .then((r) => r.json())
+      .then((d) => active && d?.ok && setSaldoAsaas(Number(d.saldo)))
+      .catch(() => {});
     return () => {
       active = false;
     };
   }, [emReal]);
 
-  // Valores efetivos: banco (real) ou mock.
-  const saldoDisponivel = emReal ? real?.saldo ?? 0 : financeiro.saldoDisponivel;
+  // Valores efetivos: banco (real) ou mock. Saldo prioriza o valor ao vivo do Asaas.
+  const saldoDisponivel = emReal
+    ? saldoAsaas ?? real?.saldo ?? 0
+    : financeiro.saldoDisponivel;
   const aLiberar = emReal ? real?.aLiberar ?? 0 : financeiro.aLiberar;
   const recebidoMes = emReal ? real?.recebidoMes ?? 0 : financeiro.recebidoMes;
   const mrr = emReal ? real?.mrr ?? 0 : financeiro.mrr;

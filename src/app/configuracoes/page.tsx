@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import {
   Card,
   CardHeader,
@@ -123,6 +124,68 @@ export default function ConfiguracoesPage() {
   const [perguntas, setPerguntas] = useState<PerguntaAnamnese[]>(
     anamneseTemplate.perguntas
   );
+  const [anamneseAtiva, setAnamneseAtiva] = useState<boolean | null>(null);
+  const [salvandoAnam, setSalvandoAnam] = useState(false);
+  const [anamMsg, setAnamMsg] = useState("");
+
+  // Carrega a anamnese real da consultoria (perguntas + se está ativa/opt-out).
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    fetch("/api/anamnese")
+      .then((r) => r.json())
+      .then((d) => {
+        setAnamneseAtiva(d.ativa ?? null);
+        if (Array.isArray(d.perguntas) && d.perguntas.length) setPerguntas(d.perguntas);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function salvarAnamnese() {
+    setAnamMsg("");
+    setSalvandoAnam(true);
+    try {
+      if (!supabaseEnabled) {
+        setAnamneseAtiva(true);
+        setAnamMsg("Salvo (protótipo).");
+        return;
+      }
+      const res = await fetch("/api/anamnese", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ perguntas }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.ok) {
+        setAnamneseAtiva(true);
+        setAnamMsg("Anamnese salva ✓");
+      } else setAnamMsg(d.erro || "Falha ao salvar.");
+    } finally {
+      setSalvandoAnam(false);
+    }
+  }
+
+  async function naoQueroAnamnese() {
+    setAnamMsg("");
+    setSalvandoAnam(true);
+    try {
+      if (!supabaseEnabled) {
+        setAnamneseAtiva(false);
+        return;
+      }
+      const res = await fetch("/api/anamnese", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ optOut: true }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.ok) {
+        setAnamneseAtiva(false);
+        setAnamMsg("Ok — sua consultoria não usará anamnese.");
+      } else setAnamMsg(d.erro || "Falha.");
+    } finally {
+      setSalvandoAnam(false);
+    }
+  }
 
   // notificacoes
   const [notificacoes, setNotificacoes] = useState(coach.notificacoes);
@@ -465,7 +528,22 @@ export default function ConfiguracoesPage() {
                     Adicionar pergunta
                   </Button>
                 </div>
-                <SaveBar />
+                <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", alignItems: "center" }}>
+                  <Button icon="check" onClick={salvarAnamnese} disabled={salvandoAnam || perguntas.length === 0}>
+                    {salvandoAnam ? "Salvando…" : "Salvar anamnese"}
+                  </Button>
+                  <Button variant="ghost" icon="x" onClick={naoQueroAnamnese} disabled={salvandoAnam}>
+                    Não quero criar anamnese
+                  </Button>
+                  {anamneseAtiva === false && (
+                    <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+                      Anamnese desativada — os alunos entram direto no check-in.
+                    </span>
+                  )}
+                  {anamMsg && (
+                    <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{anamMsg}</span>
+                  )}
+                </div>
               </CardBody>
             </Card>
           )}

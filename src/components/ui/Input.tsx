@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 import styles from "./ui.module.css";
 
 export function Input({
@@ -10,6 +10,7 @@ export function Input({
   prefix,
   id,
   className,
+  type,
   ...rest
 }: {
   label?: string;
@@ -23,11 +24,26 @@ export function Input({
   // (clicar no rótulo foca o input; leitores de tela anunciam o label).
   const autoId = useId();
   const inputId = id ?? autoId;
+  // Campos de senha ganham um botão "mostrar/ocultar" (olho) automaticamente.
+  const isPassword = type === "password";
+  const [mostrar, setMostrar] = useState(false);
+  const tipoEfetivo = isPassword ? (mostrar ? "text" : "password") : type;
   const input = (
     <div className={styles.inputWrap}>
       {icon && <i className={`ti ti-${icon}`} aria-hidden />}
       {prefix && <span className={styles.prefix}>{prefix}</span>}
-      <input id={inputId} {...rest} />
+      <input id={inputId} type={tipoEfetivo} {...rest} />
+      {isPassword && (
+        <button
+          type="button"
+          className={styles.inputEye}
+          onClick={() => setMostrar((m) => !m)}
+          aria-label={mostrar ? "Ocultar senha" : "Mostrar senha"}
+          tabIndex={-1}
+        >
+          <i className={`ti ti-${mostrar ? "eye-off" : "eye"}`} aria-hidden />
+        </button>
+      )}
     </div>
   );
 
