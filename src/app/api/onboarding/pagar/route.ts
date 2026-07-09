@@ -63,11 +63,30 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
 
   // 1) Resolve o convite (service_role — anon não passa pela RLS).
-  const { data: convite } = await admin
+  //    Tolera a migration do plano_id ainda não ter rodado: se a coluna não
+  //    existir, refaz o SELECT sem ela (o vínculo de plano fica nulo).
+  type ConviteRow = {
+    id: string;
+    consultoria_id: string;
+    valor: number;
+    status: string;
+    aluno_id: string | null;
+    plano_id?: string | null;
+  };
+  const comPlano = await admin
     .from("convites")
-    .select("id, consultoria_id, valor, status")
+    .select("id, consultoria_id, valor, status, aluno_id, plano_id")
     .eq("token", token)
     .maybeSingle();
+  let convite = comPlano.data as ConviteRow | null;
+  if (comPlano.error) {
+    const semPlano = await admin
+      .from("convites")
+      .select("id, consultoria_id, valor, status, aluno_id")
+      .eq("token", token)
+      .maybeSingle();
+    convite = semPlano.data as ConviteRow | null;
+  }
   if (!convite) return NextResponse.json({ erro: "convite inválido" }, { status: 404 });
   if (convite.status !== "pendente") {
     return NextResponse.json({ erro: "convite já utilizado" }, { status: 409 });
@@ -97,12 +116,49 @@ export async function POST(request: Request) {
 
   try {
     // 3) Cliente (aluno) no Asaas + assinatura recorrente com split.
+    const cpfDigits = aluno.cpf.replace(/\D/g, "");
+
+    // 3a) Cria (ou reusa) a linha do ALUNO no tenant do coach — a conta de acesso
+    //     é criada depois (passo senha), referenciando este aluno_id.
+    let alunoId = convite.aluno_id as string | null;
+    if (!alunoId) {
+      const alunoRow: Record<string, unknown> = {
+        consultoria_id: convite.consultoria_id,
+        nome: aluno.nome.trim(),
+        cpf: cpfDigits,
+        email: aluno.email.trim(),
+        telefone: aluno.telefone || null,
+        status_pagamento: "novo",
+        plano_id: convite.plano_id ?? null,
+      };
+      let ins = await admin.from("alunos").insert(alunoRow).select("id").single();
+      // Tolera banco sem a coluna `telefone` (migration antiga): refaz sem ela.
+      if (ins.error && /telefone/.test(ins.error.message ?? "")) {
+        delete alunoRow.telefone;
+        ins = await admin.from("alunos").insert(alunoRow).select("id").single();
+      }
+      if (ins.error) {
+        // provável conflito de CPF único no tenant → reusa o aluno existente.
+        const { data: existente } = await admin
+          .from("alunos")
+          .select("id")
+          .eq("consultoria_id", convite.consultoria_id)
+          .eq("cpf", cpfDigits)
+          .maybeSingle();
+        if (!existente) throw ins.error;
+        alunoId = existente.id;
+      } else {
+        alunoId = ins.data.id;
+      }
+    }
+
+    // 3b) Cliente (aluno) no Asaas + assinatura recorrente com split.
     const cliente = await garantirCliente({
       name: aluno.nome.trim(),
-      cpfCnpj: aluno.cpf.replace(/\D/g, ""),
+      cpfCnpj: cpfDigits,
       email: aluno.email.trim(),
       mobilePhone: (aluno.telefone || "").replace(/\D/g, "") || undefined,
-      externalReference: `convite:${convite.id}`,
+      externalReference: `aluno:${alunoId}`,
     });
 
     const c = body.cartao;
@@ -114,7 +170,8 @@ export async function POST(request: Request) {
       cycle: "MONTHLY",
       nextDueDate,
       description: "Mensalidade da consultoria",
-      externalReference: `convite:${convite.id}`,
+      // O webhook usa isto para marcar alunos.status_pagamento = em_dia.
+      externalReference: `mensalidade:${alunoId}`,
       split: splitDoCoach(cons.asaas_wallet_id, taxa),
       ...(forma === "cartao" && c
         ? {
@@ -128,19 +185,40 @@ export async function POST(request: Request) {
             creditCardHolderInfo: {
               name: c.holderName,
               email: aluno.email.trim(),
-              cpfCnpj: aluno.cpf.replace(/\D/g, ""),
+              cpfCnpj: cpfDigits,
               postalCode: c.postalCode.replace(/\D/g, ""),
               addressNumber: c.addressNumber,
+              // Asaas exige o telefone (com DDD) do titular do cartão.
+              mobilePhone: (aluno.telefone || "").replace(/\D/g, "") || undefined,
             },
             remoteIp,
           }
         : {}),
     });
 
-    // 4) Guarda os ids no convite (reconciliação; conta do aluno vem na etapa 2).
+    // 4) Vincula tudo: aluno recebe os ids do Asaas; convite fica "usado".
+    //    Atualiza nome/e-mail para os do comprador atual (no caminho de reuso por
+    //    CPF a linha guardava dados antigos — isso mantém coerência e faz o guard
+    //    de e-mail do /vincular casar). plano_id só é (re)gravado quando há plano.
+    await admin
+      .from("alunos")
+      .update({
+        nome: aluno.nome.trim(),
+        email: aluno.email.trim(),
+        asaas_customer_id: cliente.id,
+        asaas_subscription_id: assinatura.id,
+        ...(convite.plano_id ? { plano_id: convite.plano_id } : {}),
+      })
+      .eq("id", alunoId);
     await admin
       .from("convites")
-      .update({ asaas_customer_id: cliente.id, asaas_subscription_id: assinatura.id })
+      .update({
+        aluno_id: alunoId,
+        asaas_customer_id: cliente.id,
+        asaas_subscription_id: assinatura.id,
+        status: "usado",
+        used_at: new Date().toISOString(),
+      })
       .eq("id", convite.id);
 
     // 5) PIX: QR da 1ª cobrança.
@@ -163,6 +241,8 @@ export async function POST(request: Request) {
       forma,
       subscriptionId: assinatura.id,
       customerId: cliente.id,
+      alunoId,
+      consultoriaId: convite.consultoria_id,
       taxaAplicada: taxa,
       pix,
     });

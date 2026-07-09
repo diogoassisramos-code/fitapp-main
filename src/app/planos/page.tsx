@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,7 +17,15 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { listPlanos, financeiro } from "@/lib/data";
+import { listPlanos } from "@/lib/data";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import {
+  fetchPlanosConsultor,
+  savePlano,
+  setPlanoStatus,
+  deletePlano,
+  toPlanoInput,
+} from "@/lib/db";
 import {
   brl,
   RECORRENCIA_LABEL,
@@ -33,6 +41,14 @@ const RECORRENCIA_OPTIONS: { label: string; value: PeriodoRecorrencia }[] = [
   { label: "Trimestral", value: "trimestral" },
   { label: "Anual", value: "anual" },
 ];
+
+// Fator de mensalização do preço recorrente (para o MRR real).
+const PERIODO_FATOR: Record<PeriodoRecorrencia, number> = {
+  semanal: 52 / 12,
+  mensal: 1,
+  trimestral: 1 / 3,
+  anual: 1 / 12,
+};
 
 type QuickEdit = {
   id: string;
@@ -54,13 +70,41 @@ function precoLinha(p: Plano): string {
   return `${brl(p.preco)}${sufixo}`;
 }
 
+function mrrDoPlano(p: Plano): number {
+  if (p.tipoCobranca !== "recorrente" || p.status !== "ativo") return 0;
+  return p.preco * PERIODO_FATOR[p.periodoRecorrencia ?? "mensal"] * p.assinantesAtivos;
+}
+
 export default function PlanosPage() {
   const router = useRouter();
-  const planos = listPlanos();
+  const podeReal = supabaseEnabled;
 
+  const [planos, setPlanos] = useState<Plano[]>(podeReal ? [] : listPlanos());
+  const [carregando, setCarregando] = useState(podeReal);
+  const [erro, setErro] = useState("");
   const [editing, setEditing] = useState<QuickEdit | null>(null);
+  const [salvandoQuick, setSalvandoQuick] = useState(false);
+  const [copiadoId, setCopiadoId] = useState<string | null>(null);
+  const [excluindo, setExcluindo] = useState<Plano | null>(null);
 
-  const mrr = financeiro.mrr;
+  const carregar = useCallback(async () => {
+    if (!podeReal) return;
+    setCarregando(true);
+    setErro("");
+    try {
+      setPlanos(await fetchPlanosConsultor());
+    } catch {
+      setErro("Não foi possível carregar seus planos.");
+    } finally {
+      setCarregando(false);
+    }
+  }, [podeReal]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  const mrr = planos.reduce((acc, p) => acc + mrrDoPlano(p), 0);
   const assinantesAtivos = planos.reduce((acc, p) => acc + p.assinantesAtivos, 0);
   const planosAtivos = planos.filter((p) => p.status === "ativo").length;
 
@@ -72,6 +116,108 @@ export default function PlanosPage() {
       recorrencia: p.periodoRecorrencia ?? "mensal",
       status: p.status,
     });
+  }
+
+  async function salvarEdicaoRapida() {
+    if (!editing) return;
+    const base = planos.find((p) => p.id === editing.id);
+    if (!base) return setEditing(null);
+    const precoNum = Number(String(editing.preco).replace(",", "."));
+    const atualizado: Plano = {
+      ...base,
+      nome: editing.nome.trim() || base.nome,
+      preco: Number.isFinite(precoNum) && precoNum >= 0 ? precoNum : base.preco,
+      periodoRecorrencia: editing.recorrencia,
+      status: editing.status,
+    };
+    setSalvandoQuick(true);
+    setErro("");
+    try {
+      if (podeReal) await savePlano(toPlanoInput(atualizado), atualizado.id);
+      setPlanos((prev) => prev.map((p) => (p.id === atualizado.id ? atualizado : p)));
+      setEditing(null);
+    } catch {
+      setErro("Não foi possível salvar a edição.");
+    } finally {
+      setSalvandoQuick(false);
+    }
+  }
+
+  async function alternarStatus(p: Plano) {
+    const novo: StatusPlano = p.status === "ativo" ? "pausado" : "ativo";
+    setPlanos((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: novo } : x)));
+    if (!podeReal) return;
+    try {
+      await setPlanoStatus(p.id, novo);
+    } catch {
+      setErro("Não foi possível atualizar o status.");
+      carregar();
+    }
+  }
+
+  async function duplicar(p: Plano) {
+    const copia = { ...toPlanoInput(p), nome: `${p.nome} (cópia)`, status: "pausado" as StatusPlano };
+    if (!podeReal) {
+      setPlanos((prev) => [
+        ...prev,
+        { ...p, id: `local-${Date.now()}`, nome: copia.nome, status: "pausado", assinantesAtivos: 0 },
+      ]);
+      return;
+    }
+    setErro("");
+    try {
+      const novo = await savePlano(copia);
+      setPlanos((prev) => [...prev, novo]);
+    } catch {
+      setErro("Não foi possível duplicar o plano.");
+    }
+  }
+
+  async function confirmarExclusao() {
+    if (!excluindo) return;
+    const alvo = excluindo;
+    setPlanos((prev) => prev.filter((p) => p.id !== alvo.id));
+    setExcluindo(null);
+    if (!podeReal) return;
+    try {
+      await deletePlano(alvo.id);
+    } catch {
+      setErro("Não foi possível excluir o plano.");
+      carregar();
+    }
+  }
+
+  async function copiarLink(p: Plano) {
+    setErro("");
+    // Modo protótipo: usa o link estático do mock.
+    if (!podeReal) {
+      try {
+        await navigator.clipboard.writeText(p.linkPagamento);
+        setCopiadoId(p.id);
+        setTimeout(() => setCopiadoId(null), 1800);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    // Real: gera um convite (link de onboarding do aluno) com o preço do plano.
+    try {
+      const res = await fetch("/api/convites", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ valor: p.preco, planoId: p.id, descricao: p.nome }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        setErro(data.erro || "Não foi possível gerar o link.");
+        return;
+      }
+      await navigator.clipboard.writeText(`${window.location.origin}/onboarding/${data.token}`);
+      setCopiadoId(p.id);
+      setTimeout(() => setCopiadoId(null), 1800);
+    } catch {
+      setErro("Falha ao gerar o link de pagamento.");
+    }
   }
 
   return (
@@ -102,8 +248,16 @@ export default function PlanosPage() {
         />
       </div>
 
+      {erro && (
+        <p style={{ color: "var(--color-text-danger)", fontSize: 13, margin: 0 }}>{erro}</p>
+      )}
+
       <Card padded={false}>
-        {planos.length === 0 ? (
+        {carregando ? (
+          <div className={styles.emptyWrap}>
+            <EmptyState icon="loader" title="Carregando planos…" description="Buscando seus planos." />
+          </div>
+        ) : planos.length === 0 ? (
           <div className={styles.emptyWrap}>
             <EmptyState
               icon="credit-card"
@@ -130,14 +284,17 @@ export default function PlanosPage() {
                     }
                     action={
                       <div className={styles.rowActions}>
-                        <StatusBadge
-                          variant={p.status === "ativo" ? "ok" : "off"}
-                        >
+                        <StatusBadge variant={p.status === "ativo" ? "ok" : "off"}>
                           {p.status === "ativo" ? "Ativo" : "Pausado"}
                         </StatusBadge>
                         <span className={styles.preco}>{precoLinha(p)}</span>
-                        <Button variant="ghost" size="sm" icon="link">
-                          Copiar link
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={copiadoId === p.id ? "check" : "link"}
+                          onClick={() => copiarLink(p)}
+                        >
+                          {copiadoId === p.id ? "Copiado" : "Copiar link"}
                         </Button>
                         <KebabMenu
                           items={[
@@ -153,18 +310,21 @@ export default function PlanosPage() {
                             },
                             {
                               label: p.status === "ativo" ? "Pausar" : "Reativar",
-                              icon:
-                                p.status === "ativo"
-                                  ? "player-pause"
-                                  : "player-play",
+                              icon: p.status === "ativo" ? "player-pause" : "player-play",
+                              onClick: () => alternarStatus(p),
                             },
-                            { label: "Duplicar", icon: "copy" },
-                            { label: "Copiar link", icon: "link" },
+                            { label: "Duplicar", icon: "copy", onClick: () => duplicar(p) },
+                            {
+                              label: copiadoId === p.id ? "Copiado!" : "Copiar link",
+                              icon: "link",
+                              onClick: () => copiarLink(p),
+                            },
                             {
                               label: "Excluir",
                               icon: "trash",
                               danger: true,
                               separatorBefore: true,
+                              onClick: () => setExcluindo(p),
                             },
                           ]}
                         />
@@ -187,11 +347,11 @@ export default function PlanosPage() {
         footer={
           editing && (
             <div className={styles.modalFooter}>
-              <Button variant="outline" onClick={() => setEditing(null)}>
+              <Button variant="outline" onClick={() => setEditing(null)} disabled={salvandoQuick}>
                 Cancelar
               </Button>
-              <Button variant="primary" onClick={() => setEditing(null)}>
-                Salvar
+              <Button variant="primary" onClick={salvarEdicaoRapida} disabled={salvandoQuick}>
+                {salvandoQuick ? "Salvando…" : "Salvar"}
               </Button>
             </div>
           )
@@ -202,18 +362,14 @@ export default function PlanosPage() {
             <Input
               label="Nome do plano"
               value={editing.nome}
-              onChange={(e) =>
-                setEditing({ ...editing, nome: e.target.value })
-              }
+              onChange={(e) => setEditing({ ...editing, nome: e.target.value })}
             />
             <Input
               label="Preço"
               prefix="R$"
               inputMode="decimal"
               value={editing.preco}
-              onChange={(e) =>
-                setEditing({ ...editing, preco: e.target.value })
-              }
+              onChange={(e) => setEditing({ ...editing, preco: e.target.value })}
             />
 
             <div className={styles.field}>
@@ -240,13 +396,33 @@ export default function PlanosPage() {
               <Toggle
                 checked={editing.status === "ativo"}
                 aria-label="Plano ativo"
-                onChange={(b) =>
-                  setEditing({ ...editing, status: b ? "ativo" : "pausado" })
-                }
+                onChange={(b) => setEditing({ ...editing, status: b ? "ativo" : "pausado" })}
               />
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={excluindo !== null}
+        onClose={() => setExcluindo(null)}
+        title="Excluir plano"
+        size="sm"
+        footer={
+          <div className={styles.modalFooter}>
+            <Button variant="outline" onClick={() => setExcluindo(null)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" icon="trash" onClick={confirmarExclusao}>
+              Excluir
+            </Button>
+          </div>
+        }
+      >
+        <p style={{ margin: 0, color: "var(--color-text-secondary)" }}>
+          Excluir <strong>{excluindo?.nome}</strong>? Os assinantes atuais não são cobrados por
+          este link depois disso. Essa ação não pode ser desfeita.
+        </p>
       </Modal>
     </div>
   );

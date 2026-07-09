@@ -18,6 +18,12 @@ import type {
   ProtocoloItem,
   CheckIn,
   FotoCheckin,
+  Plano,
+  PlanoIncluso,
+  FormaPagamento,
+  CheckinConfig,
+  TipoCobranca,
+  StatusPlano,
 } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -136,6 +142,101 @@ export async function fetchConsultoriaResumo(): Promise<{
   return {
     saldo: Number(data?.saldo ?? 0),
     aLiberar: Number(data?.a_liberar ?? 0),
+  };
+}
+
+export type FinanceiroReal = {
+  saldo: number;
+  aLiberar: number;
+  recebidoMes: number;
+  mrr: number;
+  alunosAtivos: number;
+  inadimplenciaValor: number;
+  inadimplenciaAlunos: number;
+  faturamento: { mes: string; valor: number }[];
+  extrato: {
+    id: string;
+    alunoNome: string;
+    valor: number;
+    metodo: string;
+    data: string;
+    status: string;
+  }[];
+};
+
+const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+/**
+ * Financeiro REAL da consultoria logada (sem mock): saldo, alunos e pagamentos
+ * vindos do banco. Conta nova → tudo zero/vazio (é o estado honesto).
+ */
+export async function fetchFinanceiro(): Promise<FinanceiroReal> {
+  const supabase = createClient();
+  const cid = await getMyConsultoriaId();
+  const vazio: FinanceiroReal = {
+    saldo: 0, aLiberar: 0, recebidoMes: 0, mrr: 0,
+    alunosAtivos: 0, inadimplenciaValor: 0, inadimplenciaAlunos: 0,
+    faturamento: [], extrato: [],
+  };
+  if (!cid) return vazio;
+
+  const { data: cons } = await supabase
+    .from("consultorias")
+    .select("saldo, a_liberar, mensalidade_valor")
+    .eq("id", cid)
+    .maybeSingle();
+  const mensalidade = Number(cons?.mensalidade_valor ?? 0);
+
+  const { data: alunosData } = await supabase.from("alunos").select("status_pagamento");
+  const alunos = alunosData ?? [];
+  const alunosAtivos = alunos.filter((a) => a.status_pagamento !== "novo").length;
+  const inad = alunos.filter((a) => a.status_pagamento === "atrasado" || a.status_pagamento === "pendente");
+
+  const { data: pagData } = await supabase
+    .from("pagamentos")
+    .select("id, valor, billing_type, status, confirmado_em, recebido_em, criado_em, aluno_id, alunos(nome)")
+    .eq("fluxo", "mensalidade")
+    .order("criado_em", { ascending: false });
+  const pagamentos = (pagData ?? []) as any[];
+
+  const agoraMes = dataLocalYMD(new Date()).slice(0, 7); // YYYY-MM
+  const recebidoMes = pagamentos
+    .filter((p) => ["CONFIRMED", "RECEIVED", "confirmado", "recebido"].includes(String(p.status)))
+    .filter((p) => dataLocalYMD(p.recebido_em ?? p.confirmado_em ?? p.criado_em).slice(0, 7) === agoraMes)
+    .reduce((s, p) => s + Number(p.valor ?? 0), 0);
+
+  // Faturamento dos últimos 6 meses a partir dos pagamentos confirmados.
+  const porMes = new Map<string, number>();
+  for (const p of pagamentos) {
+    const ymd = dataLocalYMD(p.confirmado_em ?? p.recebido_em ?? p.criado_em);
+    if (!ymd) continue;
+    const chave = ymd.slice(0, 7);
+    porMes.set(chave, (porMes.get(chave) ?? 0) + Number(p.valor ?? 0));
+  }
+  const faturamento = [...porMes.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6)
+    .map(([chave, valor]) => ({ mes: MESES_CURTOS[Number(chave.slice(5, 7)) - 1], valor }));
+
+  const extrato = pagamentos.slice(0, 30).map((p) => ({
+    id: p.id,
+    alunoNome: p.alunos?.nome ?? "Aluno",
+    valor: Number(p.valor ?? 0),
+    metodo: p.billing_type ?? "—",
+    data: dataLocalYMD(p.confirmado_em ?? p.criado_em),
+    status: String(p.status ?? ""),
+  }));
+
+  return {
+    saldo: Number(cons?.saldo ?? 0),
+    aLiberar: Number(cons?.a_liberar ?? 0),
+    recebidoMes,
+    mrr: alunosAtivos * mensalidade,
+    alunosAtivos,
+    inadimplenciaValor: inad.length * mensalidade,
+    inadimplenciaAlunos: inad.length,
+    faturamento,
+    extrato,
   };
 }
 
@@ -345,6 +446,166 @@ export async function fetchAluno(id: string): Promise<Aluno | null> {
   return data ? mapAluno(data) : null;
 }
 
+// ── Planos (produtos do consultor) ────────────────────────────────────────────
+// Espelha o tipo Plano do §4. Campos aninhados vêm em jsonb do banco. Campos
+// derivados: `assinantesAtivos` (contagem de alunos no plano) e `linkPagamento`
+// (gerado sob demanda por convite, fora daqui).
+
+function mapPlano(r: any, assinantes = 0): Plano {
+  return {
+    id: r.id,
+    nome: r.nome,
+    descricao: r.descricao ?? "",
+    imagemCapa: r.imagem_capa ?? undefined,
+    tipoCobranca: (r.tipo_cobranca as TipoCobranca) ?? "recorrente",
+    modalidade: r.modalidade ?? undefined,
+    prazoEntrega: {
+      valor: Number(r.prazo_valor ?? 0),
+      unidade: r.prazo_unidade === "horas" ? "horas" : "dias_uteis",
+    },
+    incluso: (r.incluso as PlanoIncluso) ?? {
+      treino: false,
+      dieta: false,
+      protocolos: false,
+      checkin: false,
+      chat: false,
+    },
+    preco: Number(r.preco ?? 0),
+    periodoRecorrencia: r.periodo_recorrencia ?? undefined,
+    formasPagamento: (r.formas_pagamento as FormaPagamento[]) ?? [],
+    parcelamentoMax: r.parcelamento_max ?? undefined,
+    solicitarDocumentos: !!r.solicitar_documentos,
+    agendarCheckins: !!r.agendar_checkins,
+    checkinConfig: (r.checkin_config as CheckinConfig) ?? undefined,
+    upsell: r.upsell ?? undefined,
+    visibilidade: r.visibilidade ?? { venda: true, vitrine: false, renovacao: true },
+    checkoutCustom: r.checkout_custom ?? undefined,
+    slug: r.slug ?? "",
+    linkPagamento: "",
+    status: (r.status as StatusPlano) ?? "ativo",
+    assinantesAtivos: assinantes,
+  };
+}
+
+/** Campos gravados de um plano (sem os derivados id/link/assinantes). */
+export type PlanoInput = Omit<Plano, "id" | "linkPagamento" | "assinantesAtivos">;
+
+/** Descarta os campos derivados de um Plano, deixando só o que é gravável. */
+export function toPlanoInput(p: Plano): PlanoInput {
+  return {
+    nome: p.nome,
+    descricao: p.descricao,
+    imagemCapa: p.imagemCapa,
+    tipoCobranca: p.tipoCobranca,
+    modalidade: p.modalidade,
+    prazoEntrega: p.prazoEntrega,
+    incluso: p.incluso,
+    preco: p.preco,
+    periodoRecorrencia: p.periodoRecorrencia,
+    formasPagamento: p.formasPagamento,
+    parcelamentoMax: p.parcelamentoMax,
+    solicitarDocumentos: p.solicitarDocumentos,
+    agendarCheckins: p.agendarCheckins,
+    checkinConfig: p.checkinConfig,
+    upsell: p.upsell,
+    visibilidade: p.visibilidade,
+    checkoutCustom: p.checkoutCustom,
+    slug: p.slug,
+    status: p.status,
+  };
+}
+
+function planoToRow(input: PlanoInput): Record<string, unknown> {
+  return {
+    nome: input.nome,
+    descricao: input.descricao || null,
+    imagem_capa: input.imagemCapa || null,
+    tipo_cobranca: input.tipoCobranca,
+    modalidade: input.modalidade || null,
+    prazo_valor: input.prazoEntrega?.valor ?? null,
+    prazo_unidade: input.prazoEntrega?.unidade ?? null,
+    incluso: input.incluso,
+    preco: input.preco,
+    periodo_recorrencia:
+      input.tipoCobranca === "recorrente" ? input.periodoRecorrencia ?? "mensal" : null,
+    formas_pagamento: input.formasPagamento,
+    parcelamento_max: input.tipoCobranca !== "recorrente" ? input.parcelamentoMax ?? null : null,
+    solicitar_documentos: input.solicitarDocumentos,
+    agendar_checkins: input.agendarCheckins,
+    checkin_config: input.agendarCheckins ? input.checkinConfig ?? null : null,
+    upsell: input.upsell ?? null,
+    visibilidade: input.visibilidade,
+    checkout_custom: input.checkoutCustom ?? null,
+    slug: input.slug || null,
+    status: input.status,
+  };
+}
+
+/** Planos do consultor logado, com contagem de assinantes por plano. RLS filtra o tenant. */
+export async function fetchPlanosConsultor(): Promise<Plano[]> {
+  const supabase = createClient();
+  const [planosRes, alunosRes] = await Promise.all([
+    supabase.from("planos").select("*").order("created_at"),
+    supabase.from("alunos").select("plano_id, status_pagamento"),
+  ]);
+  if (planosRes.error) throw planosRes.error;
+  const counts = new Map<string, number>();
+  for (const a of alunosRes.data ?? []) {
+    // "Assinante" = aluno vinculado ao plano com pagamento não-encerrado.
+    if (a.plano_id && ["em_dia", "pendente", "atrasado", "novo"].includes(a.status_pagamento)) {
+      counts.set(a.plano_id, (counts.get(a.plano_id) ?? 0) + 1);
+    }
+  }
+  return (planosRes.data ?? []).map((r) => mapPlano(r, counts.get(r.id) ?? 0));
+}
+
+/** Um plano por id (para o editor). RLS garante que é do tenant. */
+export async function fetchPlanoById(id: string): Promise<Plano | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.from("planos").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? mapPlano(data) : null;
+}
+
+/** Cria (id ausente) ou atualiza um plano. Retorna o plano salvo. */
+export async function savePlano(input: PlanoInput, id?: string): Promise<Plano> {
+  const supabase = createClient();
+  const row = planoToRow(input);
+  if (id) {
+    const { data, error } = await supabase
+      .from("planos")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapPlano(data);
+  }
+  const consultoria_id = await getMyConsultoriaId();
+  if (!consultoria_id) throw new Error("sem consultoria");
+  const { data, error } = await supabase
+    .from("planos")
+    .insert({ ...row, consultoria_id })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapPlano(data);
+}
+
+/** Alterna ativo/pausado. */
+export async function setPlanoStatus(id: string, status: StatusPlano): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("planos").update({ status }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Exclui um plano. */
+export async function deletePlano(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("planos").delete().eq("id", id);
+  if (error) throw error;
+}
+
 /** Busca o treino (com exercícios ordenados) de um aluno. */
 export async function fetchTreinoByAluno(
   alunoId: string
@@ -375,6 +636,44 @@ export async function fetchTreinoByAluno(
     rascunho: !!treino.rascunho,
     exercicios: (exs ?? []).map(mapExercicio),
   };
+}
+
+/**
+ * TODOS os treinos do aluno (o "split": Treino A, B, C…), ordenados por criação.
+ * Uma query para os treinos + uma para os exercícios (agrupados por treino).
+ */
+export async function fetchTreinosByAluno(alunoId: string): Promise<Treino[]> {
+  const supabase = createClient();
+  const { data: treinos, error } = await supabase
+    .from("treinos")
+    .select("*")
+    .eq("aluno_id", alunoId)
+    .order("created_at");
+  if (error) throw error;
+  if (!treinos || treinos.length === 0) return [];
+
+  const ids = treinos.map((t) => t.id);
+  const { data: exs, error: exErr } = await supabase
+    .from("exercicios")
+    .select("*")
+    .in("treino_id", ids)
+    .order("ordem");
+  if (exErr) throw exErr;
+
+  const porTreino = new Map<string, Exercicio[]>();
+  for (const e of exs ?? []) {
+    const arr = porTreino.get(e.treino_id) ?? [];
+    arr.push(mapExercicio(e));
+    porTreino.set(e.treino_id, arr);
+  }
+  return treinos.map((t) => ({
+    id: t.id,
+    alunoId: t.aluno_id,
+    nome: t.nome,
+    atualizadoEm: t.updated_at,
+    rascunho: !!t.rascunho,
+    exercicios: porTreino.get(t.id) ?? [],
+  }));
 }
 
 /** Busca um treino por id (com exercícios ordenados). */
@@ -502,6 +801,40 @@ async function saveTreinoFallback(
   const saved = await fetchTreinoById(treinoId);
   if (!saved) throw new Error("treino não encontrado após salvar");
   return saved;
+}
+
+/** Exclui um treino (e seus exercícios). Usado quando o coach remove um treino do split. */
+export async function deleteTreino(treinoId: string): Promise<void> {
+  const supabase = createClient();
+  // Remove os exercícios primeiro (caso não haja ON DELETE CASCADE) e o treino depois.
+  await supabase.from("exercicios").delete().eq("treino_id", treinoId);
+  const { error } = await supabase.from("treinos").delete().eq("id", treinoId);
+  if (error) throw error;
+}
+
+/**
+ * Salva o SPLIT inteiro do aluno: faz upsert de cada treino da lista e exclui os
+ * treinos removidos no editor (`removidos`). Cada treino é salvo atomicamente
+ * (RPC save_treino); as exclusões rodam antes.
+ */
+export async function saveTreinos(
+  alunoId: string,
+  treinos: { id?: string; nome: string; exercicios: Exercicio[] }[],
+  removidos: string[] = []
+): Promise<Treino[]> {
+  for (const rid of removidos) await deleteTreino(rid);
+  const out: Treino[] = [];
+  for (const t of treinos) {
+    out.push(
+      await saveTreino(alunoId, {
+        id: t.id,
+        nome: t.nome,
+        rascunho: false,
+        exercicios: t.exercicios,
+      })
+    );
+  }
+  return out;
 }
 
 // ── Dieta ──────────────────────────────────────────────────────────────────
@@ -892,11 +1225,20 @@ export async function fetchCheckinsByAluno(
   comFotos = false
 ): Promise<CheckIn[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("checkins")
-    .select(comFotos ? "*" : CHECKIN_COLS_LEVES)
-    .eq("aluno_id", alunoId)
-    .order("semana");
+  const run = (cols: string) =>
+    supabase.from("checkins").select(cols).eq("aluno_id", alunoId).order("semana");
+
+  let { data, error } = await run(comFotos ? "*" : CHECKIN_COLS_LEVES);
+  // Tolera banco sem a coluna gerada `fotos_count` (schema_checkin.sql antigo):
+  // refaz baixando `fotos` e deriva a contagem em mapCheckin. Rode a migration
+  // schema_checkin.sql para voltar ao caminho leve (sem baixar as imagens).
+  if (
+    error &&
+    !comFotos &&
+    (error.code === "42703" || /fotos_count/.test(error.message ?? ""))
+  ) {
+    ({ data, error } = await run(CHECKIN_COLS_LEVES.replace("fotos_count", "fotos")));
+  }
   if (error) throw error;
   return (data ?? []).map(mapCheckin);
 }

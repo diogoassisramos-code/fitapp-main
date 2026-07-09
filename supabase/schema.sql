@@ -120,6 +120,9 @@ create unique index if not exists alunos_cpf_uq    on public.alunos(consultoria_
 drop trigger if exists trg_alunos_updated on public.alunos;
 create trigger trg_alunos_updated before update on public.alunos
   for each row execute function public.set_updated_at();
+-- Backfill: `telefone` entrou no create depois; `create table if not exists` não
+-- altera tabela já existente. ALTER idempotente garante a coluna em bancos antigos.
+alter table public.alunos add column if not exists telefone text;
 
 -- FK tardia: profiles.aluno_id -> alunos.id
 do $$ begin

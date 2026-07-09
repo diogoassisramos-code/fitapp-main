@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     alunoNome?: string;
     valor?: number;
     descricao?: string;
+    planoId?: string;
   };
 
   const supabase = await createClient();
@@ -58,6 +59,9 @@ export async function POST(request: Request) {
       aluno_nome: body.alunoNome?.trim() || null,
       valor,
       descricao: body.descricao?.trim() || `Mensalidade · ${cons.nome_negocio || cons.nome}`,
+      // Só grava plano_id quando o convite é de um plano — assim o convite avulso
+      // (card da mensalidade) segue funcionando mesmo antes da migration da coluna.
+      ...(body.planoId ? { plano_id: body.planoId } : {}),
     })
     .select("token")
     .single();

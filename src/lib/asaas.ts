@@ -120,14 +120,19 @@ function requireEnv(nome: string): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** fetch base com header de auth + User-Agent + retry/backoff no 429. */
+/**
+ * fetch base com header de auth + User-Agent + retry/backoff no 429.
+ * `apiKey` opcional troca a credencial: use a apiKey da SUBCONTA para chamar
+ * endpoints "myAccount" no contexto do recebedor (ex.: documentos/KYC).
+ */
 async function asaasFetch(
   path: string,
   init: RequestInit = {},
+  apiKey?: string,
   tentativa = 0
 ): Promise<Response> {
   const base = requireEnv("ASAAS_BASE_URL").replace(/\/$/, "");
-  const key = requireEnv("ASAAS_API_KEY");
+  const key = apiKey || requireEnv("ASAAS_API_KEY");
   const res = await fetch(base + path, {
     ...init,
     headers: {
@@ -142,13 +147,17 @@ async function asaasFetch(
   if (res.status === 429 && tentativa < 3) {
     const reset = Number(res.headers.get("ratelimit-reset")) || 2 ** tentativa;
     await sleep(Math.min(reset, 10) * 1000);
-    return asaasFetch(path, init, tentativa + 1);
+    return asaasFetch(path, init, apiKey, tentativa + 1);
   }
   return res;
 }
 
-async function asaasJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await asaasFetch(path, init);
+async function asaasJson<T>(
+  path: string,
+  init: RequestInit = {},
+  apiKey?: string
+): Promise<T> {
+  const res = await asaasFetch(path, init, apiKey);
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
   if (!res.ok) {
@@ -293,6 +302,7 @@ export type CriarSubcontaInput = {
   cpfCnpj: string;
   mobilePhone: string;
   incomeValue: number;
+  birthDate?: string; // AAAA-MM-DD (recomendado para pessoa física)
   address?: string;
   addressNumber?: string;
   province?: string;
@@ -309,6 +319,61 @@ export function criarSubconta(
   input: CriarSubcontaInput
 ): Promise<AsaasSubconta> {
   return asaasJson("/accounts", { method: "POST", body: JSON.stringify(input) });
+}
+
+// ── KYC da subconta: documentos pendentes + status de aprovação ───────────────
+// Estes endpoints são chamados NO CONTEXTO DA SUBCONTA (autenticam com a apiKey
+// dela, não com a chave da plataforma). O onboardingUrl é a jornada hospedada
+// pelo Asaas (documento de identificação + selfie/prova de vida).
+
+/** Situação agregada da conta. general="APPROVED" = conta 100% liberada. */
+export type AsaasAccountStatus = {
+  id?: string;
+  commercialInfo?: string;
+  bankAccountInfo?: string;
+  documentation?: string;
+  general?: string;
+};
+
+/** Um grupo de documento exigido no KYC (identificação, selfie, etc.). */
+export type AsaasDocumentoPendente = {
+  id: string;
+  /** NOT_SENT | PENDING | AWAITING_APPROVAL | APPROVED | REJECTED */
+  status: string;
+  /** IDENTIFICATION | IDENTIFICATION_SELFIE | SOCIAL_CONTRACT | ... */
+  type: string;
+  title?: string;
+  description?: string;
+  /** Quando presente, o envio DEVE ser por este link (upload via API é rejeitado). */
+  onboardingUrl?: string;
+  documents?: { id: string; status: string }[];
+};
+
+/** Situação agregada da subconta (autentica com a apiKey da subconta). */
+export function statusSubconta(apiKey: string): Promise<AsaasAccountStatus> {
+  return asaasJson("/myAccount/status", {}, apiKey);
+}
+
+/**
+ * Documentos KYC pendentes da subconta. IMPORTANTE: aguardar ~15s após criar a
+ * conta antes de chamar (validação junto à Receita) — antes disso pode vir vazio
+ * ou incorreto.
+ */
+export function listarDocumentosSubconta(
+  apiKey: string
+): Promise<{ data: AsaasDocumentoPendente[]; rejectReasons?: unknown }> {
+  return asaasJson("/myAccount/documents", {}, apiKey);
+}
+
+/** Escolhe o link de onboarding (identidade + selfie) entre os documentos pendentes. */
+export function onboardingUrlDosDocumentos(docs: {
+  data?: AsaasDocumentoPendente[];
+}): string | null {
+  const lista = docs.data ?? [];
+  // Prefere um documento ainda não aprovado que tenha link.
+  const pendente = lista.find((d) => d.onboardingUrl && d.status !== "APPROVED");
+  if (pendente?.onboardingUrl) return pendente.onboardingUrl;
+  return lista.find((d) => d.onboardingUrl)?.onboardingUrl ?? null;
 }
 
 // ── Webhooks (registro via API — alternativa ao painel) ──────────────────────

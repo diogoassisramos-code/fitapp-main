@@ -18,6 +18,8 @@ alter table public.consultorias
   add column if not exists asaas_account_id       text,
   add column if not exists asaas_wallet_id         text,
   add column if not exists asaas_subaccount_key    text,
+  -- Link da jornada de KYC (documento + selfie) da subconta, hospedada pelo Asaas.
+  add column if not exists asaas_onboarding_url    text,
   add column if not exists asaas_onboarding_status text not null default 'nao_iniciado';
 alter table public.consultorias drop constraint if exists consultorias_asaas_onboarding_chk;
 alter table public.consultorias add  constraint consultorias_asaas_onboarding_chk

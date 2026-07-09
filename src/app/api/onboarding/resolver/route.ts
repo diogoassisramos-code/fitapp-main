@@ -30,6 +30,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     coachNome: convite.coach_nome,
+    alunoNome: convite.aluno_nome ?? null,
     valor: Number(convite.valor),
     descricao: convite.descricao,
   });

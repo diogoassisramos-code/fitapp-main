@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import {
   Button,
@@ -24,8 +24,19 @@ import {
 import { brl, dataCurta } from "@/lib/format";
 import type { Transacao } from "@/lib/types";
 import type { BadgeVariant } from "@/components/ui/StatusBadge";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { fetchFinanceiro, type FinanceiroReal } from "@/lib/db";
 import { AtivarRecebimento } from "./AtivarRecebimento";
 import styles from "./financeiro.module.css";
+
+/** Badge para o status real de um pagamento do Asaas. */
+function statusExtrato(status: string): { label: string; variant: BadgeVariant } {
+  const s = status.toUpperCase();
+  if (s.includes("RECEIV") || s.includes("CONFIRM")) return { label: "Recebido", variant: "ok" };
+  if (s.includes("OVERDUE") || s.includes("ATRAS")) return { label: "Atrasado", variant: "late" };
+  if (s.includes("PENDING") || s.includes("PENDENTE")) return { label: "Pendente", variant: "pending" };
+  return { label: status || "—", variant: "off" };
+}
 
 type FiltroExtrato = "todos" | "entrada" | "saida";
 
@@ -39,22 +50,45 @@ const STATUS_TX: Record<
 };
 
 export default function FinanceiroPage() {
+  const emReal = supabaseEnabled;
+  const [real, setReal] = useState<FinanceiroReal | null>(null);
   const [sacarAberto, setSacarAberto] = useState(false);
-  const [valorSaque, setValorSaque] = useState(
-    financeiro.saldoDisponivel.toFixed(2).replace(".", ","),
-  );
+  const [valorSaque, setValorSaque] = useState("0,00");
   const [periodo, setPeriodo] = useState<"6m" | "12m">("6m");
   const [filtroExtrato, setFiltroExtrato] = useState<FiltroExtrato>("todos");
 
-  const transacoes = listTransacoes();
+  useEffect(() => {
+    if (!emReal) return;
+    let active = true;
+    fetchFinanceiro()
+      .then((d) => active && setReal(d))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [emReal]);
 
+  // Valores efetivos: banco (real) ou mock.
+  const saldoDisponivel = emReal ? real?.saldo ?? 0 : financeiro.saldoDisponivel;
+  const aLiberar = emReal ? real?.aLiberar ?? 0 : financeiro.aLiberar;
+  const recebidoMes = emReal ? real?.recebidoMes ?? 0 : financeiro.recebidoMes;
+  const mrr = emReal ? real?.mrr ?? 0 : financeiro.mrr;
+  const inadValor = emReal ? real?.inadimplenciaValor ?? 0 : financeiro.inadimplencia.valor;
+  const inadAlunos = emReal ? real?.inadimplenciaAlunos ?? 0 : financeiro.inadimplencia.alunos;
+  const faturamentoPontos = emReal
+    ? real?.faturamento ?? []
+    : financeiro.faturamento6m;
+  const proximos = emReal ? [] : proximosRecebimentos;
+  const extratoReal = emReal ? real?.extrato ?? [] : null;
+
+  const transacoes = emReal ? [] : listTransacoes();
   const extratoFiltrado = useMemo(() => {
     if (filtroExtrato === "todos") return transacoes;
     return transacoes.filter((t) => t.tipo === filtroExtrato);
   }, [transacoes, filtroExtrato]);
 
   const abrirSacar = () => {
-    setValorSaque(financeiro.saldoDisponivel.toFixed(2).replace(".", ","));
+    setValorSaque(saldoDisponivel.toFixed(2).replace(".", ","));
     setSacarAberto(true);
   };
 
@@ -72,7 +106,7 @@ export default function FinanceiroPage() {
       <div className={styles.metrics}>
         <MetricCard
           label="Saldo disponível"
-          value={brl(financeiro.saldoDisponivel)}
+          value={brl(saldoDisponivel)}
           icon="wallet"
           action={
             <Button
@@ -87,65 +121,80 @@ export default function FinanceiroPage() {
         />
         <MetricCard
           label="A liberar"
-          value={brl(financeiro.aLiberar)}
+          value={brl(aLiberar)}
           sub="em processamento"
           icon="clock"
         />
         <MetricCard
           label="Recebido no mês"
-          value={brl(financeiro.recebidoMes)}
+          value={brl(recebidoMes)}
           icon="trending-up"
         />
-        <MetricCard label="MRR" value={brl(financeiro.mrr)} icon="repeat" />
+        <MetricCard label="MRR" value={brl(mrr)} icon="repeat" />
       </div>
 
-      {/* Inadimplência */}
-      <div className={styles.inadimplencia}>
-        <div className={styles.inadimplenciaText}>
-          <span className={styles.inadimplenciaIcon}>
-            <i className="ti ti-alert-triangle" aria-hidden />
-          </span>
-          <div>
-            <strong className={styles.inadimplenciaValor}>
-              {brl(financeiro.inadimplencia.valor)} em atraso
-            </strong>
-            <span className={styles.inadimplenciaSub}>
-              {financeiro.inadimplencia.alunos} alunos com pagamento pendente
+      {/* Inadimplência (só quando há) */}
+      {inadAlunos > 0 && (
+        <div className={styles.inadimplencia}>
+          <div className={styles.inadimplenciaText}>
+            <span className={styles.inadimplenciaIcon}>
+              <i className="ti ti-alert-triangle" aria-hidden />
             </span>
+            <div>
+              <strong className={styles.inadimplenciaValor}>
+                {brl(inadValor)} em atraso
+              </strong>
+              <span className={styles.inadimplenciaSub}>
+                {inadAlunos} aluno{inadAlunos > 1 ? "s" : ""} com pagamento pendente
+              </span>
+            </div>
           </div>
+          <Button variant="outline" size="sm" href="/alunos">
+            Ver atrasados
+          </Button>
         </div>
-        <Button variant="outline" size="sm" href="/alunos">
-          Ver atrasados
-        </Button>
-      </div>
+      )}
 
       {/* Faturamento */}
-      <PointsChart
-        title="Faturamento"
-        headerRight={
-          <Segmented
-            options={[
-              { label: "6 meses", value: "6m" },
-              { label: "12 meses", value: "12m" },
-            ]}
-            value={periodo}
-            onChange={setPeriodo}
-            ariaLabel="Período do faturamento"
+      {faturamentoPontos.length >= 2 ? (
+        <PointsChart
+          title="Faturamento"
+          headerRight={
+            !emReal ? (
+              <Segmented
+                options={[
+                  { label: "6 meses", value: "6m" },
+                  { label: "12 meses", value: "12m" },
+                ]}
+                value={periodo}
+                onChange={setPeriodo}
+                ariaLabel="Período do faturamento"
+              />
+            ) : undefined
+          }
+          data={faturamentoPontos.map((f, i, a) => ({
+            date: f.mes,
+            total: f.valor,
+            change: i === 0 ? 0 : f.valor - a[i - 1].valor,
+          }))}
+          format="currency"
+        />
+      ) : (
+        <Card padded>
+          <EmptyState
+            icon="chart-line"
+            title="Sem faturamento ainda"
+            description="Seu faturamento aparece aqui conforme os alunos pagam."
+            compact
           />
-        }
-        data={financeiro.faturamento6m.map((f, i, a) => ({
-          date: f.mes,
-          total: f.valor,
-          change: i === 0 ? 0 : f.valor - a[i - 1].valor,
-        }))}
-        format="currency"
-      />
+        </Card>
+      )}
 
       <div className={styles.split}>
         {/* Próximos recebimentos */}
         <Card padded={false}>
           <CardHeader title="Próximos recebimentos" />
-          {proximosRecebimentos.length === 0 ? (
+          {proximos.length === 0 ? (
             <EmptyState
               icon="calendar-dollar"
               title="Nenhum recebimento previsto"
@@ -154,7 +203,7 @@ export default function FinanceiroPage() {
             />
           ) : (
             <div className={styles.list}>
-              {proximosRecebimentos.map((r) => (
+              {proximos.map((r) => (
                 <ListRow
                   key={r.id}
                   title={<span className={styles.nome}>{r.alunoNome}</span>}
@@ -189,7 +238,38 @@ export default function FinanceiroPage() {
               />
             }
           />
-          {extratoFiltrado.length === 0 ? (
+          {emReal ? (
+            (extratoReal ?? []).length === 0 ? (
+              <EmptyState
+                icon="receipt"
+                title="Nenhuma movimentação"
+                description="As entradas aparecem aqui conforme os alunos pagam."
+                compact
+              />
+            ) : (
+              <div className={styles.list}>
+                {(extratoReal ?? []).map((t) => {
+                  const st = statusExtrato(t.status);
+                  return (
+                    <ListRow
+                      key={t.id}
+                      title={<span className={styles.nome}>{t.alunoNome} · Mensalidade</span>}
+                      action={<span className={styles.valorEntrada}>{brl(t.valor)}</span>}
+                      meta={
+                        <span className={styles.metaRow}>
+                          <span className={styles.meta}>
+                            {t.metodo}
+                            {t.data ? ` · ${dataCurta(t.data)}` : ""}
+                          </span>
+                          <StatusBadge variant={st.variant}>{st.label}</StatusBadge>
+                        </span>
+                      }
+                    />
+                  );
+                })}
+              </div>
+            )
+          ) : extratoFiltrado.length === 0 ? (
             <EmptyState
               icon="receipt"
               title="Nenhuma movimentação"
@@ -206,14 +286,8 @@ export default function FinanceiroPage() {
                     key={t.id}
                     title={<span className={styles.nome}>{t.descricao}</span>}
                     action={
-                      <span
-                        className={
-                          entrada ? styles.valorEntrada : styles.valorSaida
-                        }
-                      >
-                        {entrada
-                          ? brl(t.valor)
-                          : "- " + brl(Math.abs(t.valor))}
+                      <span className={entrada ? styles.valorEntrada : styles.valorSaida}>
+                        {entrada ? brl(t.valor) : "- " + brl(Math.abs(t.valor))}
                       </span>
                     }
                     meta={
@@ -221,9 +295,7 @@ export default function FinanceiroPage() {
                         <span className={styles.meta}>
                           {t.metodo} · {dataCurta(t.data)}
                         </span>
-                        <StatusBadge variant={st.variant}>
-                          {st.label}
-                        </StatusBadge>
+                        <StatusBadge variant={st.variant}>{st.label}</StatusBadge>
                       </span>
                     }
                   />
@@ -258,7 +330,7 @@ export default function FinanceiroPage() {
             inputMode="decimal"
             value={valorSaque}
             onChange={(e) => setValorSaque(e.target.value)}
-            hint={`Disponível: ${brl(financeiro.saldoDisponivel)}`}
+            hint={`Disponível: ${brl(saldoDisponivel)}`}
           />
 
           <div className={styles.contaSaque}>

@@ -25,6 +25,10 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as {
+    email?: string;
+    cpfCnpj?: string;
+    mobilePhone?: string;
+    birthDate?: string;
     incomeValue?: number;
     address?: string;
     addressNumber?: string;
@@ -64,21 +68,38 @@ export async function POST(request: Request) {
       onboardingStatus: cons.asaas_onboarding_status,
     });
   }
-  if (!cons.documento) {
-    return NextResponse.json({ erro: "consultoria sem CPF/CNPJ (documento)" }, { status: 400 });
+  // CPF/CNPJ e celular: preferir o que veio do formulário; senão o do cadastro.
+  const cpfCnpj = (body.cpfCnpj || cons.documento || "").replace(/\D/g, "");
+  const mobilePhone = (body.mobilePhone || cons.telefone || "").replace(/\D/g, "");
+  const pessoaFisica = body.companyType === "INDIVIDUAL";
+  if (cpfCnpj.length !== 11 && cpfCnpj.length !== 14) {
+    return NextResponse.json({ erro: "informe um CPF ou CNPJ válido" }, { status: 400 });
+  }
+  if (mobilePhone.length < 10) {
+    return NextResponse.json({ erro: "informe um celular válido" }, { status: 400 });
+  }
+  if (!body.address?.trim() || !body.addressNumber?.trim() || !body.province?.trim() || !body.postalCode) {
+    return NextResponse.json({ erro: "endereço incompleto" }, { status: 400 });
+  }
+  // E-mail de recebimento: o informado no form ou o de login. Precisa ser ÚNICO
+  // no Asaas (não pode colidir com a conta raiz nem com outra subconta).
+  const email = (body.email || user.email || "").trim();
+  if (!/.+@.+\..+/.test(email)) {
+    return NextResponse.json({ erro: "informe um e-mail de recebimento válido" }, { status: 400 });
   }
 
   try {
     const subconta = await criarSubconta({
       name: cons.nome_negocio || cons.nome,
-      email: user.email ?? "",
-      cpfCnpj: cons.documento.replace(/\D/g, ""),
-      mobilePhone: (cons.telefone || "").replace(/\D/g, "") || "11999999999",
+      email,
+      cpfCnpj,
+      mobilePhone,
+      birthDate: pessoaFisica ? body.birthDate || undefined : undefined,
       incomeValue: body.incomeValue ?? 5000,
-      address: body.address ?? "Rua Teste",
-      addressNumber: body.addressNumber ?? "100",
-      province: body.province ?? "Centro",
-      postalCode: (body.postalCode ?? "01001000").replace(/\D/g, ""),
+      address: body.address.trim(),
+      addressNumber: body.addressNumber.trim(),
+      province: body.province.trim(),
+      postalCode: body.postalCode.replace(/\D/g, ""),
       companyType: body.companyType,
     });
 
@@ -105,6 +126,16 @@ export async function POST(request: Request) {
     const status = e instanceof AsaasError ? 502 : 500;
     // eslint-disable-next-line no-console
     console.error("[subconta] falha", e);
+    // Mensagem amigável para o caso comum de e-mail/CPF/CNPJ já usados no Asaas.
+    const bruto = e instanceof AsaasError ? JSON.stringify(e.detalhes) : "";
+    if (/em uso/i.test(bruto)) {
+      const oque = /email/i.test(bruto)
+        ? "Esse e-mail já tem uma conta no Asaas — use outro e-mail de recebimento."
+        : /cnpj/i.test(bruto)
+          ? "Esse CNPJ já tem uma conta de recebimento no Asaas."
+          : "Esse CPF já tem uma conta de recebimento no Asaas.";
+      return NextResponse.json({ erro: oque }, { status: 409 });
+    }
     return NextResponse.json(
       { erro: e instanceof Error ? e.message : "falha ao criar subconta" },
       { status }

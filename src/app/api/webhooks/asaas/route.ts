@@ -95,16 +95,27 @@ async function processarPagamento(
 async function processarSubconta(
   admin: SupabaseAdmin,
   evento: string,
-  account: any
+  account: any,
+  accountStatus: any
 ): Promise<void> {
   const accountId = account?.id;
   if (!accountId) return;
-  // ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED = subconta liberada para receber.
-  const status = evento.includes("APPROVED")
-    ? "aprovado"
-    : evento.includes("REJECTED") || evento.includes("REPROV")
-      ? "reprovado"
-      : "em_analise";
+  // A conta só está LIBERADA quando o status agregado `general` = APPROVED. As
+  // aprovações parciais (COMMERCIAL_INFO/DOCUMENT/BANK_ACCOUNT_INFO) também trazem
+  // "APPROVED" no nome do evento, mas NÃO liberam — por isso decidimos pelo
+  // campo `general` (com fallback ao evento GENERAL_APPROVAL_*).
+  const geral: string | undefined = accountStatus?.general;
+  let status: string;
+  if (geral) {
+    status =
+      geral === "APPROVED" ? "aprovado" : geral === "REJECTED" ? "reprovado" : "em_analise";
+  } else {
+    status = evento.includes("GENERAL_APPROVAL_APPROVED")
+      ? "aprovado"
+      : evento.includes("GENERAL_APPROVAL_REJECTED")
+        ? "reprovado"
+        : "em_analise";
+  }
   const r = await admin
     .from("consultorias")
     .update({ asaas_onboarding_status: status })
@@ -170,7 +181,7 @@ export async function POST(request: Request) {
     if (eventoTipo.startsWith("PAYMENT_")) {
       await processarPagamento(admin, eventoTipo, body.payment);
     } else if (eventoTipo.startsWith("ACCOUNT_STATUS")) {
-      await processarSubconta(admin, eventoTipo, body.account ?? body);
+      await processarSubconta(admin, eventoTipo, body.account ?? body, body.accountStatus);
     }
     // Outros eventos: só ficam registrados em webhook_events.
 

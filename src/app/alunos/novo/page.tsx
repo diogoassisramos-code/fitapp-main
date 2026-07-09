@@ -49,6 +49,8 @@ export default function NovoAlunoPage() {
   const [criado, setCriado] = useState<TestAluno | null>(null);
   const [erro, setErro] = useState("");
   const [copiado, setCopiado] = useState(false);
+  // Modo Supabase: link de convite real gerado (o aluno cria a própria conta).
+  const [linkReal, setLinkReal] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -70,21 +72,35 @@ export default function NovoAlunoPage() {
 
   async function handleCadastrar() {
     setErro("");
-    // Com Supabase: grava o aluno no banco e volta pra lista.
+    setLinkReal(null);
+    // Com Supabase: gera um LINK de convite. O aluno abre, paga e cria a própria
+    // conta (a linha do aluno nasce no pagamento). Não cadastra direto aqui.
     if (supabaseEnabled) {
-      if (!nome.trim()) return;
-      // CPF é opcional, mas se informado tem que ser válido (é a identidade
-      // global do aluno). createAluno normaliza para 11 dígitos ao persistir.
-      if (cpf.trim() && !cpfValido(cpf)) {
-        setErro("CPF inválido. Confira os números ou deixe o campo em branco.");
+      if (!nome.trim()) {
+        setErro("Informe o nome do aluno.");
         return;
       }
       setSalvando(true);
       try {
-        await createAluno({ nome: nome.trim(), cpf, email, telefone, objetivo });
-        router.push("/alunos");
+        const res = await fetch("/api/convites", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ alunoNome: nome.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setErro(
+            data.erro === "defina o valor da mensalidade antes de convidar"
+              ? "Defina sua mensalidade em Financeiro → Convidar aluno antes de gerar o link."
+              : data.erro || "Não foi possível gerar o link."
+          );
+          return;
+        }
+        setLinkReal(`${window.location.origin}/onboarding/${data.token}`);
+        setCopiado(false);
       } catch {
-        setErro("Não foi possível cadastrar o aluno. Tente novamente.");
+        setErro("Falha de conexão. Tente novamente.");
+      } finally {
         setSalvando(false);
       }
       return;
@@ -155,6 +171,45 @@ export default function NovoAlunoPage() {
             <strong>Modelo experimental:</strong> você pode cadastrar até{" "}
             {LIMITE_ALUNOS_TESTE} alunos de teste para experimentar a plataforma.
           </p>
+        </div>
+      )}
+
+      {/* Link de convite real (modo Supabase) */}
+      {linkReal && (
+        <div className={styles.sucessoCard}>
+          <div className={styles.sucessoHead}>
+            <i className={`ti ti-circle-check ${styles.sucessoIcon}`} aria-hidden />
+            <h2 className={styles.sucessoTitle}>Link de convite pronto!</h2>
+          </div>
+          <p className={styles.sucessoText}>
+            Envie este link para o aluno. Ele abre, escolhe cartão ou PIX, paga a
+            mensalidade e cria a própria conta de acesso.
+          </p>
+          <div className={styles.linkRow}>
+            <div className={styles.linkInput}>
+              <Input
+                readOnly
+                value={linkReal}
+                icon="link"
+                aria-label="Link de convite"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+            </div>
+            <Button
+              variant="primary"
+              icon={copiado ? "check" : "copy"}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(linkReal);
+                  setCopiado(true);
+                } catch {
+                  /* ignore */
+                }
+              }}
+            >
+              {copiado ? "Copiado!" : "Copiar"}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -360,14 +415,14 @@ export default function NovoAlunoPage() {
               <div className={styles.ctaRow}>
                 <Button
                   variant="primary"
-                  icon="user-plus"
+                  icon={supabaseEnabled ? "link" : "user-plus"}
                   disabled={!nome.trim() || salvando}
                   onClick={handleCadastrar}
                 >
                   {supabaseEnabled
                     ? salvando
-                      ? "Cadastrando…"
-                      : "Cadastrar aluno"
+                      ? "Gerando link…"
+                      : "Gerar link de convite"
                     : "Cadastrar e convidar aluno"}
                 </Button>
               </div>

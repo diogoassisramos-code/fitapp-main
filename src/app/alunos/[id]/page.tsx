@@ -23,7 +23,7 @@ import {
   STATUS_PAGAMENTO,
   MODALIDADE_LABEL,
 } from "@/lib/format";
-import type { Aluno, Treino, Dieta, Protocolo } from "@/lib/types";
+import type { Aluno, Dieta, Protocolo } from "@/lib/types";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient as createServerSupabase } from "@/utils/supabase/server";
 import styles from "./ficha.module.css";
@@ -101,45 +101,29 @@ async function fetchProtocoloFromDb(
   };
 }
 
-/** Treino do aluno no Supabase (server-side). */
-async function fetchTreinoFromDb(alunoId: string): Promise<Treino | undefined> {
+/**
+ * Resumo do SPLIT de treinos do aluno (Supabase, server-side): quantos treinos e
+ * o total de exercícios. A ficha mostra "N treinos · X exercícios" (o construtor
+ * abre o split completo).
+ */
+async function fetchTreinosResumo(
+  alunoId: string
+): Promise<{ qtd: number; exercicios: number; nome: string }> {
   const supabase = await createServerSupabase();
-  const { data: t } = await supabase
+  const { data: treinos } = await supabase
     .from("treinos")
-    .select("*")
+    .select("id, nome")
     .eq("aluno_id", alunoId)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!t) return undefined;
-  const { data: exs } = await supabase
+    .order("created_at");
+  if (!treinos || treinos.length === 0) return { qtd: 0, exercicios: 0, nome: "" };
+  const { count } = await supabase
     .from("exercicios")
-    .select("*")
-    .eq("treino_id", t.id)
-    .order("ordem");
-  return {
-    id: t.id,
-    alunoId: t.aluno_id,
-    nome: t.nome,
-    atualizadoEm: t.updated_at,
-    rascunho: !!t.rascunho,
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    exercicios: (exs ?? []).map((r: any) => ({
-      id: r.id,
-      ordem: r.ordem ?? 0,
-      nome: r.nome,
-      grupo: r.grupo ?? "",
-      series: r.series ?? 0,
-      reps: r.reps ?? "",
-      descansoSeg: r.descanso_seg ?? 0,
-      video: { origem: r.video_origem ?? "vazio", url: r.video_url ?? undefined },
-      observacoes: r.observacoes ?? undefined,
-      seriesDetalhe:
-        Array.isArray(r.series_detalhe) && r.series_detalhe.length
-          ? r.series_detalhe
-          : undefined,
-    })),
-  };
+    .select("id", { count: "exact", head: true })
+    .in(
+      "treino_id",
+      treinos.map((t) => t.id)
+    );
+  return { qtd: treinos.length, exercicios: count ?? 0, nome: treinos[0].nome };
 }
 
 /** Busca o aluno no Supabase (server-side, sessão via cookie). */
@@ -234,8 +218,12 @@ export default async function FichaAlunoPage({
   const deltaPeso = aluno.pesoAtual - aluno.pesoInicial;
   const deltaPesoStr = `${deltaPeso >= 0 ? "+" : ""}${deltaPeso.toFixed(1)} kg`;
 
-  let treino = getTreino(aluno.id);
-  if (!treino && supabaseEnabled) treino = await fetchTreinoFromDb(aluno.id);
+  const treinoMock = getTreino(aluno.id);
+  const treinoResumo = treinoMock
+    ? { qtd: 1, exercicios: treinoMock.exercicios.length, nome: treinoMock.nome }
+    : supabaseEnabled
+      ? await fetchTreinosResumo(aluno.id)
+      : { qtd: 0, exercicios: 0, nome: "" };
   let dieta = getDieta(aluno.id);
   if (!dieta && supabaseEnabled) dieta = await fetchDietaFromDb(aluno.id);
   let protocolo = getProtocolo(aluno.id);
@@ -325,21 +313,25 @@ export default async function FichaAlunoPage({
             </div>
             <span className="mono-label">Treino</span>
             <p className={styles.protoName}>
-              {treino ? treino.nome : "Ainda não montado"}
+              {treinoResumo.qtd === 0
+                ? "Ainda não montado"
+                : treinoResumo.qtd === 1
+                  ? treinoResumo.nome
+                  : `${treinoResumo.qtd} treinos`}
             </p>
             <p className={styles.protoMeta}>
-              {treino
-                ? `${treino.exercicios.length} exercícios`
-                : "Monte o programa de treino"}
+              {treinoResumo.qtd === 0
+                ? "Monte o programa de treino"
+                : `${treinoResumo.exercicios} exercício${treinoResumo.exercicios === 1 ? "" : "s"}`}
             </p>
             <div className={styles.protoAction}>
               <Button
                 variant="ghost"
                 size="sm"
-                iconRight={treino ? "arrow-right" : "plus"}
+                iconRight={treinoResumo.qtd > 0 ? "arrow-right" : "plus"}
                 href={`/alunos/${aluno.id}/treino`}
               >
-                {treino ? "Abrir" : "Montar"}
+                {treinoResumo.qtd > 0 ? "Abrir" : "Montar"}
               </Button>
             </div>
           </Card>

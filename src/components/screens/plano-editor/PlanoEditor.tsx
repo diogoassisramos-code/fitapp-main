@@ -32,7 +32,19 @@ import {
   DIAS_SEMANA,
   diasSemanaResumo,
 } from "@/lib/format";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { savePlano, type PlanoInput } from "@/lib/db";
 import styles from "./plano-editor.module.css";
+
+/** "Consultoria Online" -> "consultoria-online" (slug do link de checkout). */
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
 
 const FORMAS: FormaPagamento[] = ["cartao", "pix", "boleto"];
 const FORMA_ICON: Record<FormaPagamento, string> = {
@@ -118,6 +130,8 @@ export function PlanoEditor({ plano }: { plano?: Plano }) {
 
   const [aplicarAtuais, setAplicarAtuais] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
 
   const link = plano?.linkPagamento ?? "";
 
@@ -152,8 +166,53 @@ export function PlanoEditor({ plano }: { plano?: Plano }) {
     setTimeout(() => setCopiado(false), 1800);
   }
 
-  function salvar() {
-    router.push("/planos");
+  async function salvar() {
+    setErro("");
+    const precoNum = Number(String(preco).replace(",", "."));
+    if (!nome.trim()) {
+      setErro("Dê um nome ao plano.");
+      return;
+    }
+    if (!Number.isFinite(precoNum) || precoNum <= 0) {
+      setErro("Informe um preço válido.");
+      return;
+    }
+    // Modo protótipo (sem Supabase): mantém o comportamento de stub.
+    if (!supabaseEnabled) {
+      router.push("/planos");
+      return;
+    }
+    const input: PlanoInput = {
+      nome: nome.trim(),
+      descricao: descricao.trim(),
+      imagemCapa: capa,
+      tipoCobranca,
+      modalidade,
+      prazoEntrega: { valor: Number(prazoValor) || 0, unidade: prazoUnidade },
+      incluso,
+      preco: precoNum,
+      periodoRecorrencia: periodo,
+      formasPagamento: formas,
+      parcelamentoMax: parcelas,
+      solicitarDocumentos,
+      agendarCheckins,
+      checkinConfig,
+      upsell: { ativo: upsellAtivo },
+      visibilidade: { venda, vitrine, renovacao },
+      checkoutCustom: checkoutCustom ? plano?.checkoutCustom ?? { cor: "" } : undefined,
+      slug: plano?.slug || slugify(nome),
+      status: plano?.status ?? "ativo",
+    };
+    setSalvando(true);
+    try {
+      await savePlano(input, plano?.id);
+      router.push("/planos");
+      router.refresh();
+    } catch {
+      setErro("Não foi possível salvar o plano. Tente novamente.");
+    } finally {
+      setSalvando(false);
+    }
   }
 
   return (
@@ -721,8 +780,13 @@ export function PlanoEditor({ plano }: { plano?: Plano }) {
       {/* Rodapé fixo */}
       <div className={styles.footer}>
         <div className={styles.footerInner}>
-          <Button icon="check" onClick={salvar}>
-            Salvar plano
+          {erro && (
+            <span style={{ color: "var(--color-text-danger)", fontSize: 13, marginRight: "auto" }}>
+              {erro}
+            </span>
+          )}
+          <Button icon="check" onClick={salvar} disabled={salvando}>
+            {salvando ? "Salvando…" : "Salvar plano"}
           </Button>
           <Button variant="outline" href="/planos">
             Cancelar
