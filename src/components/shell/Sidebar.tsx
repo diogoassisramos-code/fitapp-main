@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "@/lib/nav";
 import { signOut } from "@/lib/auth";
 import { useConsultor } from "@/lib/useConsultor";
+import { useIsAdmin } from "@/lib/useIsAdmin";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient } from "@/utils/supabase/client";
 import styles from "./Sidebar.module.css";
@@ -28,6 +29,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const coach = useConsultor();
+  const isAdmin = useIsAdmin();
 
   return (
     <aside className={styles.sidebar} data-open={open}>
@@ -83,11 +85,13 @@ export function Sidebar({
         <span className={styles.label}>Ver como aluno</span>
       </Link>
 
-      {/* Acesso ao painel administrativo da plataforma */}
-      <Link href="/admin" className={styles.navItem} onClick={onCloseMobile}>
-        <i className="ti ti-shield-cog" aria-hidden />
-        <span className={styles.label}>Painel admin</span>
-      </Link>
+      {/* Acesso ao painel admin — só para o(s) e-mail(s) da allowlist. */}
+      {isAdmin && (
+        <Link href="/admin" className={styles.navItem} onClick={onCloseMobile}>
+          <i className="ti ti-shield-cog" aria-hidden />
+          <span className={styles.label}>Painel admin</span>
+        </Link>
+      )}
 
       {/* Card do usuário no rodapé */}
       <div className={styles.userRow}>

@@ -34,6 +34,17 @@ type CartaoInput = {
   addressNumber: string;
 };
 
+/** Bandeira a partir do BIN (fallback quando o Asaas não devolve a brand). */
+function bandeiraDoNumero(numero: string): string {
+  const n = numero.replace(/\D/g, "");
+  if (/^4/.test(n)) return "Visa";
+  if (/^(5[1-5]|2[2-7])/.test(n)) return "Mastercard";
+  if (/^3[47]/.test(n)) return "Amex";
+  if (/^(4011|431274|438935|451416|457393|504175|5067|509|627780|636297|636368|650|6516|6550)/.test(n)) return "Elo";
+  if (/^(606282|3841)/.test(n)) return "Hipercard";
+  return "Cartão";
+}
+
 export async function POST(request: Request) {
   if (!asaasEnabled) {
     return NextResponse.json({ erro: "pagamento indisponível" }, { status: 503 });
@@ -210,6 +221,34 @@ export async function POST(request: Request) {
         ...(convite.plano_id ? { plano_id: convite.plano_id } : {}),
       })
       .eq("id", alunoId);
+
+    // Guarda os dados PARCIAIS do cartão (nunca o número completo) pra o app
+    // mostrar o cartão cadastrado. Update separado e TOLERANTE: se as colunas
+    // ainda não existem (migration pendente), só avisa — o pagamento já passou.
+    if (forma === "cartao" && c) {
+      const numDigits = c.number.replace(/\D/g, "");
+      const brandAsaas = (
+        assinatura as unknown as { creditCard?: { creditCardBrand?: string } }
+      ).creditCard?.creditCardBrand;
+      const anoCurto =
+        c.expiryYear.length === 2 ? c.expiryYear : c.expiryYear.slice(-2);
+      const { error: cartaoErr } = await admin
+        .from("alunos")
+        .update({
+          cartao_final: numDigits.slice(-4),
+          cartao_bandeira: brandAsaas || bandeiraDoNumero(numDigits),
+          cartao_titular: c.holderName,
+          cartao_validade: `${String(c.expiryMonth).padStart(2, "0")}/${anoCurto}`,
+        })
+        .eq("id", alunoId);
+      if (cartaoErr) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[onboarding/pagar] cartão parcial não persistido (rode schema_anamnese_rpc.sql)",
+          cartaoErr.message
+        );
+      }
+    }
     await admin
       .from("convites")
       .update({

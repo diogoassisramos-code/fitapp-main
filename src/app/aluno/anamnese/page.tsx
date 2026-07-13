@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Textarea } from "@/components/ui";
 import { useAlunoSessao } from "@/lib/useAlunoSessao";
+import { comprimirImagem } from "@/lib/imagem";
 import type { PerguntaAnamnese } from "@/lib/types";
 import styles from "../checkin/checkin.module.css";
 
@@ -222,7 +223,10 @@ function CampoResposta({
       </div>
     );
   }
-  // texto (e fallback p/ tipos não suportados aqui, incl. "foto")
+  if (pergunta.tipo === "foto") {
+    return <FotoResposta valor={valor} onChange={onChange} />;
+  }
+  // texto (e fallback p/ tipos não previstos)
   return (
     <Textarea
       placeholder="Sua resposta"
@@ -230,5 +234,68 @@ function CampoResposta({
       value={valor}
       onChange={(e) => onChange(e.target.value)}
     />
+  );
+}
+
+/** Upload de foto → data URL comprimida (mesmo padrão do check-in). */
+function FotoResposta({
+  valor,
+  onChange,
+}: {
+  valor: string;
+  onChange: (v: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [carregando, setCarregando] = useState(false);
+  const temFoto = valor.startsWith("data:image");
+
+  async function escolher(file: File | undefined) {
+    if (!file) return;
+    setCarregando(true);
+    try {
+      onChange(await comprimirImagem(file));
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+      {temFoto && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={valor}
+          alt="Foto enviada"
+          style={{
+            maxWidth: 220,
+            borderRadius: "var(--border-radius-md)",
+            border: "1px solid var(--color-border)",
+          }}
+        />
+      )}
+      <div style={{ display: "flex", gap: "var(--space-2)" }}>
+        <Button
+          type="button"
+          variant="outline"
+          icon={temFoto ? "photo-edit" : "camera"}
+          onClick={() => inputRef.current?.click()}
+          disabled={carregando}
+        >
+          {carregando ? "Processando…" : temFoto ? "Trocar foto" : "Enviar foto"}
+        </Button>
+        {temFoto && (
+          <Button type="button" variant="ghost" icon="x" onClick={() => onChange("")}>
+            Remover
+          </Button>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => escolher(e.target.files?.[0])}
+      />
+    </div>
   );
 }

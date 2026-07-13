@@ -361,6 +361,108 @@ export function saldoSubconta(apiKey: string): Promise<AsaasSaldo> {
   return asaasJson("/finance/balance", {}, apiKey);
 }
 
+// ── Conta MASTER (plataforma) — saldo, extrato e saques ──────────────────────
+// Estas funções usam a CHAVE MASTER (ASAAS_API_KEY, sem apiKey de subconta): a
+// conta raiz que recebe as assinaturas SaaS (100%) e a fatia da plataforma
+// (split_taxa) das mensalidades. É o dinheiro real da plataforma.
+
+/** Saldo DISPONÍVEL da conta master (plataforma). */
+export function saldoMaster(): Promise<AsaasSaldo> {
+  return asaasJson("/finance/balance");
+}
+
+/** Uma linha do extrato financeiro (ledger) da conta. */
+export type AsaasTransacaoFinanceira = {
+  id: string;
+  /** Positivo = crédito; negativo = débito (saque, split pago, taxa). */
+  value: number;
+  /** Saldo da conta após o lançamento. */
+  balance?: number;
+  /** PAYMENT_RECEIVED | TRANSFER | PAYMENT_FEE | ... */
+  type?: string;
+  date?: string;
+  description?: string;
+  payment?: string | null;
+  transfer?: string | null;
+};
+
+/** Extrato (financialTransactions) da conta master — o ledger real de caixa. */
+export function listarTransacoesFinanceiras(params?: {
+  offset?: number;
+  limit?: number;
+  startDate?: string; // YYYY-MM-DD
+  finishDate?: string; // YYYY-MM-DD
+}): Promise<{
+  data: AsaasTransacaoFinanceira[];
+  totalCount?: number;
+  hasMore?: boolean;
+}> {
+  const qs = new URLSearchParams({ limit: String(params?.limit ?? 50) });
+  if (params?.offset) qs.set("offset", String(params.offset));
+  if (params?.startDate) qs.set("startDate", params.startDate);
+  if (params?.finishDate) qs.set("finishDate", params.finishDate);
+  return asaasJson(`/financialTransactions?${qs.toString()}`);
+}
+
+/** Uma transferência/saque da conta master. */
+export type AsaasTransferencia = {
+  id: string;
+  status: string; // PENDING | BANK_PROCESSING | DONE | CANCELLED | FAILED
+  value: number;
+  netValue?: number;
+  transferFee?: number;
+  dateCreated?: string;
+  effectiveDate?: string;
+  operationType?: string; // PIX | TED | INTERNAL
+  description?: string;
+};
+
+/** Histórico de saques/transferências da conta master. */
+export function listarTransferencias(params?: {
+  offset?: number;
+  limit?: number;
+}): Promise<{
+  data: AsaasTransferencia[];
+  totalCount?: number;
+  hasMore?: boolean;
+}> {
+  const qs = new URLSearchParams({ limit: String(params?.limit ?? 30) });
+  if (params?.offset) qs.set("offset", String(params.offset));
+  return asaasJson(`/transfers?${qs.toString()}`);
+}
+
+/** Tipo da chave PIX de destino do saque. */
+export type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
+
+export type TransferenciaPixInput = {
+  value: number;
+  pixAddressKey: string;
+  pixAddressKeyType?: PixKeyType;
+  description?: string;
+};
+
+/**
+ * Saca da conta master via PIX (operationType PIX). O dinheiro sai da conta da
+ * plataforma para a chave PIX informada. Ação IRREVERSÍVEL — a rota que a chama
+ * exige admin e confirmação explícita.
+ */
+export function criarTransferenciaPix(
+  input: TransferenciaPixInput
+): Promise<AsaasTransferencia> {
+  return asaasJson("/transfers", {
+    method: "POST",
+    body: JSON.stringify({
+      operationType: "PIX",
+      value: input.value,
+      pixAddressKey: input.pixAddressKey,
+      ...(input.pixAddressKeyType
+        ? { pixAddressKeyType: input.pixAddressKeyType }
+        : {}),
+      ...(input.description ? { description: input.description } : {}),
+    }),
+  });
+}
+
 /**
  * Documentos KYC pendentes da subconta. IMPORTANTE: aguardar ~15s após criar a
  * conta antes de chamar (validação junto à Receita) — antes disso pode vir vazio

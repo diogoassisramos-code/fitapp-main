@@ -36,6 +36,42 @@ function parseRef(ref?: string): { fluxo: "saas" | "mensalidade" | null; id: str
   return { fluxo: null, id: null };
 }
 
+/** Taxa efetiva (%) da consultoria: override do coach → global → fallback 10. */
+async function resolverTaxa(admin: SupabaseAdmin, consultoriaId: string): Promise<number> {
+  const { data: cons } = await admin
+    .from("consultorias")
+    .select("taxa_plataforma_pct")
+    .eq("id", consultoriaId)
+    .maybeSingle();
+  if (cons?.taxa_plataforma_pct != null) return Number(cons.taxa_plataforma_pct);
+  const { data: cfg } = await admin
+    .from("plataforma_config")
+    .select("taxa_plataforma_pct")
+    .eq("id", 1)
+    .maybeSingle();
+  return Number(cfg?.taxa_plataforma_pct ?? 10);
+}
+
+/**
+ * Fatia da plataforma sobre uma cobrança do aluno. O split do Asaas repassa
+ * (100 − taxa)% do LÍQUIDO (após a taxa do gateway) ao coach; a plataforma
+ * retém taxa% desse mesmo líquido. Usa o `split[].totalValue` real do payload
+ * quando o Asaas já calculou; senão deriva de netValue × taxa (idêntico ao que
+ * configuramos na cobrança). Retorna null se não dá pra calcular ainda.
+ */
+function calcularSplitTaxa(payment: any, netValue: number, taxa: number): number {
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  // Só criamos UM recebedor no split (o coach) → o restante do líquido é da
+  // plataforma. Se o payload traz o valor já calculado, usa a verdade do Asaas.
+  const itens: any[] = Array.isArray(payment?.split) ? payment.split : [];
+  const somaCoach = itens.reduce((s, it) => {
+    const v = it?.totalValue ?? it?.totalFixedValue;
+    return v != null ? s + Number(v) : s;
+  }, 0);
+  if (somaCoach > 0) return round2(Math.max(0, netValue - somaCoach));
+  return round2(netValue * (taxa / 100));
+}
+
 async function processarPagamento(
   admin: SupabaseAdmin,
   evento: string,
@@ -45,15 +81,37 @@ async function processarPagamento(
   const { fluxo, id: entidadeId } = parseRef(payment.externalReference);
   const agora = new Date().toISOString();
 
+  // Resolve o tenant + a fatia da plataforma. Para mensalidade, o
+  // externalReference só traz o alunoId → buscamos a consultoria dele. Isso é
+  // OBRIGATÓRIO: a RLS de leitura do coach exige `pagamentos.consultoria_id`
+  // preenchido (senão o extrato/faturamento do coach vem vazio), e o admin
+  // agrega a receita da plataforma por `split_taxa`.
+  let consultoriaId: string | null = fluxo === "saas" ? entidadeId : null;
+  let splitTaxa: number | null = null;
+  const net = payment.netValue != null ? Number(payment.netValue) : null;
+  if (fluxo === "mensalidade" && entidadeId) {
+    const { data: al } = await admin
+      .from("alunos")
+      .select("consultoria_id")
+      .eq("id", entidadeId)
+      .maybeSingle();
+    consultoriaId = (al?.consultoria_id as string) ?? null;
+    if (net != null && consultoriaId) {
+      const taxa = await resolverTaxa(admin, consultoriaId);
+      splitTaxa = calcularSplitTaxa(payment, net, taxa);
+    }
+  }
+
   const linha: Record<string, unknown> = {
     asaas_payment_id: payment.id,
     asaas_subscription_id: payment.subscription ?? null,
-    consultoria_id: fluxo === "saas" ? entidadeId : null,
+    consultoria_id: consultoriaId,
     aluno_id: fluxo === "mensalidade" ? entidadeId : null,
     fluxo: fluxo ?? "saas",
     billing_type: payment.billingType ?? null,
     valor: payment.value ?? null,
     net_value: payment.netValue ?? null,
+    split_taxa: splitTaxa,
     status: payment.status ?? evento,
     external_reference: payment.externalReference ?? null,
     updated_at: agora,

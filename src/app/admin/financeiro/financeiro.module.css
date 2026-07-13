@@ -64,6 +64,115 @@
   align-items: start;
 }
 
+/* ---------- Conta master (Asaas) ---------- */
+.master {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.masterTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.masterSaldoBloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.masterEyebrow {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.masterSaldo {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-success);
+  line-height: 1.1;
+}
+
+.masterSaldoSub {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.masterAcoes {
+  display: inline-flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.masterMsg {
+  font-size: 13px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+}
+
+.masterMsgOk {
+  background: var(--color-background-success, var(--color-background-secondary));
+  color: var(--color-text-success);
+}
+
+.masterMsgErro {
+  background: var(--color-background-danger);
+  color: var(--color-text-danger);
+}
+
+.masterSaques {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border-tertiary);
+}
+
+.masterSaquesTitulo {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-2);
+}
+
+/* ---------- Form de saque (modal) ---------- */
+.saqueForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.saqueAviso {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  background: var(--color-background-secondary);
+  padding: var(--space-3);
+  border-radius: var(--border-radius-md);
+}
+
+.saqueErro {
+  font-size: 13px;
+  color: var(--color-text-danger);
+}
+
 /* ---------- Extrato ---------- */
 .extratoFiltro {
   padding: var(--space-4) var(--space-5);

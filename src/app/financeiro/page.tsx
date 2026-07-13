@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import {
   Button,
@@ -58,22 +58,57 @@ export default function FinanceiroPage() {
   const [filtroExtrato, setFiltroExtrato] = useState<FiltroExtrato>("todos");
 
   const [saldoAsaas, setSaldoAsaas] = useState<number | null>(null);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
 
-  useEffect(() => {
+  // Recebimento aprovado → os dados gerais (KPIs) sobem pra cima e o bloco de
+  // "Recebimentos"/"Convidar" desce. Antes de aprovar, a ativação vem primeiro.
+  const [recebAtivo, setRecebAtivo] = useState(false);
+  const handleStatusReceb = useCallback(
+    (s: string) => setRecebAtivo(s === "aprovado"),
+    []
+  );
+
+  const carregar = useCallback(() => {
     if (!emReal) return;
-    let active = true;
     fetchFinanceiro()
-      .then((d) => active && setReal(d))
+      .then(setReal)
       .catch(() => {});
     // Saldo REAL da subconta no Asaas (o split cai direto na wallet do coach).
     fetch("/api/asaas/saldo")
       .then((r) => r.json())
-      .then((d) => active && d?.ok && setSaldoAsaas(Number(d.saldo)))
+      .then((d) => d?.ok && setSaldoAsaas(Number(d.saldo)))
       .catch(() => {});
-    return () => {
-      active = false;
-    };
   }, [emReal]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  // Reconciliação PULL: puxa as cobranças do Asaas (fallback quando o webhook não
+  // chegou) e recarrega os KPIs/extrato.
+  async function sincronizar() {
+    setSincronizando(true);
+    setSyncMsg("");
+    try {
+      const res = await fetch("/api/asaas/sincronizar", { method: "POST" });
+      const d = await res.json();
+      if (res.ok && d.ok) {
+        setSyncMsg(
+          d.pagamentos > 0
+            ? `${d.pagamentos} cobrança(s) sincronizada(s).`
+            : "Nada novo pra sincronizar."
+        );
+        carregar();
+      } else {
+        setSyncMsg(d.erro || "Falha ao sincronizar.");
+      }
+    } catch {
+      setSyncMsg("Falha de conexão.");
+    } finally {
+      setSincronizando(false);
+    }
+  }
 
   // Valores efetivos: banco (real) ou mock. Saldo prioriza o valor ao vivo do Asaas.
   const saldoDisponivel = emReal
@@ -81,6 +116,7 @@ export default function FinanceiroPage() {
     : financeiro.saldoDisponivel;
   const aLiberar = emReal ? real?.aLiberar ?? 0 : financeiro.aLiberar;
   const recebidoMes = emReal ? real?.recebidoMes ?? 0 : financeiro.recebidoMes;
+  const recebidoMesBruto = emReal ? real?.recebidoMesBruto ?? 0 : financeiro.recebidoMes;
   const mrr = emReal ? real?.mrr ?? 0 : financeiro.mrr;
   const inadValor = emReal ? real?.inadimplenciaValor ?? 0 : financeiro.inadimplencia.valor;
   const inadAlunos = emReal ? real?.inadimplenciaAlunos ?? 0 : financeiro.inadimplencia.alunos;
@@ -101,46 +137,74 @@ export default function FinanceiroPage() {
     setSacarAberto(true);
   };
 
+  // Fluxo 2 — ativar recebimento (subconta Asaas). Keyed p/ reordenar sem remount.
+  const ativarEl = <AtivarRecebimento key="ativar" onStatus={handleStatusReceb} />;
+
+  // Dados gerais do financeiro (KPIs).
+  const metricsEl = (
+    <div key="metrics" className={styles.metrics}>
+      <MetricCard
+        label="Saldo disponível"
+        value={brl(saldoDisponivel)}
+        icon="wallet"
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            icon="arrow-bar-up"
+            onClick={abrirSacar}
+          >
+            Sacar
+          </Button>
+        }
+      />
+      <MetricCard
+        label="A liberar"
+        value={brl(aLiberar)}
+        sub="em processamento"
+        icon="clock"
+      />
+      <MetricCard
+        label="Recebido no mês"
+        value={brl(recebidoMes)}
+        sub={
+          emReal && recebidoMesBruto > recebidoMes
+            ? `líquido · bruto ${brl(recebidoMesBruto)}`
+            : emReal
+              ? "líquido"
+              : undefined
+        }
+        icon="trending-up"
+      />
+      <MetricCard label="MRR" value={brl(mrr)} icon="repeat" />
+    </div>
+  );
+
   return (
     <div className={styles.page}>
       <PageHeader
         title="Financeiro"
         subtitle="Saldo, recebimentos e extrato"
+        actions={
+          emReal ? (
+            <div className={styles.syncBar}>
+              {syncMsg && <span className={styles.syncMsg}>{syncMsg}</span>}
+              <Button
+                variant="outline"
+                size="sm"
+                icon="refresh"
+                onClick={sincronizar}
+                disabled={sincronizando}
+              >
+                {sincronizando ? "Sincronizando…" : "Sincronizar"}
+              </Button>
+            </div>
+          ) : undefined
+        }
       />
 
-      {/* Fluxo 2 — ativar recebimento (subconta Asaas) */}
-      <AtivarRecebimento />
-
-      {/* Métricas */}
-      <div className={styles.metrics}>
-        <MetricCard
-          label="Saldo disponível"
-          value={brl(saldoDisponivel)}
-          icon="wallet"
-          action={
-            <Button
-              variant="outline"
-              size="sm"
-              icon="arrow-bar-up"
-              onClick={abrirSacar}
-            >
-              Sacar
-            </Button>
-          }
-        />
-        <MetricCard
-          label="A liberar"
-          value={brl(aLiberar)}
-          sub="em processamento"
-          icon="clock"
-        />
-        <MetricCard
-          label="Recebido no mês"
-          value={brl(recebidoMes)}
-          icon="trending-up"
-        />
-        <MetricCard label="MRR" value={brl(mrr)} icon="repeat" />
-      </div>
+      {/* Recebimento aprovado → KPIs primeiro; senão, ativação primeiro. */}
+      {recebAtivo ? [metricsEl, ativarEl] : [ativarEl, metricsEl]}
 
       {/* Inadimplência (só quando há) */}
       {inadAlunos > 0 && (
@@ -259,19 +323,33 @@ export default function FinanceiroPage() {
               <div className={styles.list}>
                 {(extratoReal ?? []).map((t) => {
                   const st = statusExtrato(t.status);
+                  const temTaxas = t.taxaGateway > 0 || t.taxaPlataforma > 0;
                   return (
                     <ListRow
                       key={t.id}
                       title={<span className={styles.nome}>{t.alunoNome} · Mensalidade</span>}
                       action={<span className={styles.valorEntrada}>{brl(t.valor)}</span>}
                       meta={
-                        <span className={styles.metaRow}>
-                          <span className={styles.meta}>
-                            {t.metodo}
-                            {t.data ? ` · ${dataCurta(t.data)}` : ""}
+                        <>
+                          <span className={styles.metaRow}>
+                            <span className={styles.meta}>
+                              {t.metodo}
+                              {t.data ? ` · ${dataCurta(t.data)}` : ""}
+                            </span>
+                            <StatusBadge variant={st.variant}>{st.label}</StatusBadge>
                           </span>
-                          <StatusBadge variant={st.variant}>{st.label}</StatusBadge>
-                        </span>
+                          {temTaxas && (
+                            <span className={styles.breakdown}>
+                              bruto {brl(t.valorBruto)}
+                              {t.taxaGateway > 0 && (
+                                <> · gateway <span className={styles.taxa}>−{brl(t.taxaGateway)}</span></>
+                              )}
+                              {t.taxaPlataforma > 0 && (
+                                <> · plataforma <span className={styles.taxa}>−{brl(t.taxaPlataforma)}</span></>
+                              )}
+                            </span>
+                          )}
+                        </>
                       }
                     />
                   );

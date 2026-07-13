@@ -156,11 +156,26 @@ export default function RevisaoCheckinPage({
       await responderConsultor(checkin, fromDb, resposta.trim());
       setRespondido(true);
     } catch (e) {
-      setErroResposta(
-        "Não foi possível enviar a resposta agora. Tente novamente."
-      );
+      // console.error(err) imprime "{}" no overlay (props de Error não são
+      // enumeráveis) — extrai a mensagem para o log e a UI serem acionáveis.
+      const detalhe = e instanceof Error ? e.message : String(e ?? "");
+      if (/jwt|token|expired|401|refresh/i.test(detalhe)) {
+        setErroResposta(
+          "Sua sessão expirou. Entre de novo e reenvie a resposta."
+        );
+      } else if (/failed to fetch|network|load failed/i.test(detalhe)) {
+        setErroResposta(
+          "Sem conexão com o servidor. Verifique a internet e tente novamente."
+        );
+      } else {
+        setErroResposta(
+          `Não foi possível enviar a resposta agora. Tente novamente.${
+            detalhe ? ` (${detalhe})` : ""
+          }`
+        );
+      }
       // eslint-disable-next-line no-console
-      console.error(e);
+      console.error("Falha ao responder check-in:", detalhe, e);
     } finally {
       setEnviando(false);
     }

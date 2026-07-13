@@ -1,17 +1,32 @@
+"use client";
+
+import { use, useEffect, useState } from "react";
 import { Button, EmptyState } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { getConsultoria } from "@/lib/admin";
 import { ConsultorForm } from "@/components/admin/screens/ConsultorForm";
+import { adminFetchConsultoria, type AdminConsultoria } from "@/lib/adminDb";
 
-export default async function EditarConsultoriaPage({
+export default function EditarConsultoriaPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  const consultoria = getConsultoria(id);
+  const { id } = use(params);
+  const [consultoria, setConsultoria] = useState<AdminConsultoria | null | undefined>(undefined);
 
-  if (!consultoria) {
+  useEffect(() => {
+    adminFetchConsultoria(id)
+      .then((c) => setConsultoria(c))
+      .catch(() => setConsultoria(null));
+  }, [id]);
+
+  if (consultoria === undefined) {
+    return (
+      <PageHeader eyebrow="Consultorias" title="Editar consultoria" subtitle="Carregando…" />
+    );
+  }
+
+  if (consultoria === null) {
     return (
       <>
         <PageHeader

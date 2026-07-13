@@ -148,8 +148,11 @@ export async function fetchConsultoriaResumo(): Promise<{
 export type FinanceiroReal = {
   saldo: number;
   aLiberar: number;
+  /** Líquido que o coach efetivamente recebeu no mês (após gateway + plataforma). */
   recebidoMes: number;
-  /** Mensalidades recebidas na janela rolante dos últimos 30 dias. */
+  /** Bruto cobrado do aluno no mês (antes das taxas) — só para referência. */
+  recebidoMesBruto: number;
+  /** Líquido recebido na janela rolante dos últimos 30 dias. */
   faturamento30d: number;
   /** Variação vs. os 30 dias anteriores (ex.: "+12%"); "" se não dá pra comparar. */
   faturamento30dDelta: string;
@@ -157,16 +160,27 @@ export type FinanceiroReal = {
   alunosAtivos: number;
   inadimplenciaValor: number;
   inadimplenciaAlunos: number;
+  /** Faturamento líquido (o que cai pro coach) por mês. */
   faturamento: { mes: string; valor: number }[];
   extrato: {
     id: string;
     alunoNome: string;
+    /** Líquido do coach (headline). */
     valor: number;
+    /** Bruto cobrado do aluno. */
+    valorBruto: number;
+    /** Custo do gateway (Asaas) = bruto − líquido da cobrança. */
+    taxaGateway: number;
+    /** Fatia retida pela plataforma (split). */
+    taxaPlataforma: number;
     metodo: string;
     data: string;
     status: string;
   }[];
 };
+
+/** Status que contam como dinheiro efetivamente recebido/confirmado. */
+const STATUS_PAGO = ["CONFIRMED", "RECEIVED", "confirmado", "recebido"];
 
 const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -178,7 +192,8 @@ export async function fetchFinanceiro(): Promise<FinanceiroReal> {
   const supabase = createClient();
   const cid = await getMyConsultoriaId();
   const vazio: FinanceiroReal = {
-    saldo: 0, aLiberar: 0, recebidoMes: 0, faturamento30d: 0, faturamento30dDelta: "", mrr: 0,
+    saldo: 0, aLiberar: 0, recebidoMes: 0, recebidoMesBruto: 0,
+    faturamento30d: 0, faturamento30dDelta: "", mrr: 0,
     alunosAtivos: 0, inadimplenciaValor: 0, inadimplenciaAlunos: 0,
     faturamento: [], extrato: [],
   };
@@ -198,42 +213,54 @@ export async function fetchFinanceiro(): Promise<FinanceiroReal> {
 
   const { data: pagData } = await supabase
     .from("pagamentos")
-    .select("id, valor, billing_type, status, confirmado_em, recebido_em, criado_em, aluno_id, alunos(nome)")
+    .select("id, valor, net_value, split_taxa, billing_type, status, confirmado_em, recebido_em, criado_em, aluno_id, alunos(nome)")
     .eq("fluxo", "mensalidade")
     .order("criado_em", { ascending: false });
   const pagamentos = (pagData ?? []) as any[];
 
-  const agoraMes = dataLocalYMD(new Date()).slice(0, 7); // YYYY-MM
-  const recebidoMes = pagamentos
-    .filter((p) => ["CONFIRMED", "RECEIVED", "confirmado", "recebido"].includes(String(p.status)))
-    .filter((p) => dataLocalYMD(p.recebido_em ?? p.confirmado_em ?? p.criado_em).slice(0, 7) === agoraMes)
-    .reduce((s, p) => s + Number(p.valor ?? 0), 0);
+  // Líquido do coach por pagamento: (líquido da cobrança) − (fatia da plataforma).
+  // net_value já desconta o gateway; split_taxa é o que a plataforma retém. Sem
+  // net_value (linha antiga) cai no bruto pra não sumir do extrato.
+  const bruto = (p: any) => Number(p.valor ?? 0);
+  const liquido = (p: any) => {
+    const base = p.net_value != null ? Number(p.net_value) : bruto(p);
+    return base - Number(p.split_taxa ?? 0);
+  };
+  const pago = (p: any) => STATUS_PAGO.includes(String(p.status));
 
-  // Faturamento dos últimos 6 meses a partir dos pagamentos confirmados.
+  const agoraMes = dataLocalYMD(new Date()).slice(0, 7); // YYYY-MM
+  const pagosNoMes = pagamentos
+    .filter(pago)
+    .filter((p) => dataLocalYMD(p.recebido_em ?? p.confirmado_em ?? p.criado_em).slice(0, 7) === agoraMes);
+  const recebidoMes = pagosNoMes.reduce((s, p) => s + liquido(p), 0);
+  const recebidoMesBruto = pagosNoMes.reduce((s, p) => s + bruto(p), 0);
+
+  // Faturamento LÍQUIDO dos últimos 6 meses a partir dos pagamentos confirmados.
   const porMes = new Map<string, number>();
   for (const p of pagamentos) {
+    if (!pago(p)) continue;
     const ymd = dataLocalYMD(p.confirmado_em ?? p.recebido_em ?? p.criado_em);
     if (!ymd) continue;
     const chave = ymd.slice(0, 7);
-    porMes.set(chave, (porMes.get(chave) ?? 0) + Number(p.valor ?? 0));
+    porMes.set(chave, (porMes.get(chave) ?? 0) + liquido(p));
   }
   const faturamento = [...porMes.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-6)
     .map(([chave, valor]) => ({ mes: MESES_CURTOS[Number(chave.slice(5, 7)) - 1], valor }));
 
-  // Faturamento dos últimos 30 dias (janela rolante) + variação vs. os 30 antes.
+  // Faturamento líquido dos últimos 30 dias (janela rolante) + variação.
   const MS30 = 30 * 24 * 3600 * 1000;
   const agoraMs = Date.now();
   const somaJanela = (iniMs: number, fimMs: number) =>
     pagamentos
-      .filter((p) => ["CONFIRMED", "RECEIVED", "confirmado", "recebido"].includes(String(p.status)))
+      .filter(pago)
       .filter((p) => {
         const d = p.recebido_em ?? p.confirmado_em ?? p.criado_em;
         const t = d ? new Date(d).getTime() : NaN;
         return t >= iniMs && t < fimMs;
       })
-      .reduce((s, p) => s + Number(p.valor ?? 0), 0);
+      .reduce((s, p) => s + liquido(p), 0);
   const faturamento30d = somaJanela(agoraMs - MS30, agoraMs);
   const faturamentoAnterior = somaJanela(agoraMs - 2 * MS30, agoraMs - MS30);
   const faturamento30dDelta =
@@ -243,19 +270,27 @@ export async function fetchFinanceiro(): Promise<FinanceiroReal> {
         )}%`
       : "";
 
-  const extrato = pagamentos.slice(0, 30).map((p) => ({
-    id: p.id,
-    alunoNome: p.alunos?.nome ?? "Aluno",
-    valor: Number(p.valor ?? 0),
-    metodo: p.billing_type ?? "—",
-    data: dataLocalYMD(p.confirmado_em ?? p.criado_em),
-    status: String(p.status ?? ""),
-  }));
+  const extrato = pagamentos.slice(0, 30).map((p) => {
+    const b = bruto(p);
+    const netCobranca = p.net_value != null ? Number(p.net_value) : b;
+    return {
+      id: p.id,
+      alunoNome: p.alunos?.nome ?? "Aluno",
+      valor: liquido(p),
+      valorBruto: b,
+      taxaGateway: Math.max(0, b - netCobranca),
+      taxaPlataforma: Number(p.split_taxa ?? 0),
+      metodo: p.billing_type ?? "—",
+      data: dataLocalYMD(p.confirmado_em ?? p.criado_em),
+      status: String(p.status ?? ""),
+    };
+  });
 
   return {
     saldo: Number(cons?.saldo ?? 0),
     aLiberar: Number(cons?.a_liberar ?? 0),
     recebidoMes,
+    recebidoMesBruto,
     faturamento30d,
     faturamento30dDelta,
     mrr: alunosAtivos * mensalidade,
@@ -263,6 +298,122 @@ export async function fetchFinanceiro(): Promise<FinanceiroReal> {
     inadimplenciaValor: inad.length * mensalidade,
     inadimplenciaAlunos: inad.length,
     faturamento,
+    extrato,
+  };
+}
+
+// ── Financeiro da PLATAFORMA (admin) ─────────────────────────────────────────
+// Receita real da plataforma a partir do `pagamentos` (a RLS deixa o admin ver
+// tudo). Receita por pagamento:
+//   • mensalidade (fluxo 2) → split_taxa (a fatia retida no split aluno→coach)
+//   • saas        (fluxo 1) → net_value  (a assinatura do consultor à plataforma)
+// GMV (volume processado) = soma do `valor` bruto de todos os fluxos.
+
+export type AdminFinanceiroReal = {
+  /** Receita recorrente da plataforma (assinaturas SaaS dos consultores) no mês. */
+  mrrPlataforma: number;
+  /** Receita total da plataforma no mês (taxa do split + assinaturas SaaS). */
+  faturamentoMes: number;
+  /** Volume financeiro processado (GMV) no mês. */
+  volumeProcessadoMes: number;
+  /** Receita acumulada da plataforma (todo o histórico). */
+  receitaAcumulada: number;
+  inadimplencia: { valor: number; consultorias: number };
+  /** Receita da plataforma por mês (últimos 6). */
+  faturamento6m: { mes: string; valor: number }[];
+  /** GMV por mês (últimos 6). */
+  volume6m: { mes: string; valor: number }[];
+  extrato: {
+    id: string;
+    descricao: string;
+    tipo: "assinatura" | "taxa";
+    valor: number;
+    metodo: string;
+    data: string;
+    status: string;
+  }[];
+};
+
+export async function fetchAdminFinanceiro(): Promise<AdminFinanceiroReal> {
+  const supabase = createClient();
+  const vazio: AdminFinanceiroReal = {
+    mrrPlataforma: 0, faturamentoMes: 0, volumeProcessadoMes: 0, receitaAcumulada: 0,
+    inadimplencia: { valor: 0, consultorias: 0 },
+    faturamento6m: [], volume6m: [], extrato: [],
+  };
+
+  const { data: pagData, error } = await supabase
+    .from("pagamentos")
+    .select("id, fluxo, valor, net_value, split_taxa, billing_type, status, confirmado_em, recebido_em, criado_em, consultoria_id, consultorias(nome_negocio, nome)")
+    .order("criado_em", { ascending: false });
+  if (error) return vazio; // sem permissão / tabela ausente → estado honesto
+  const pagamentos = (pagData ?? []) as any[];
+
+  const pago = (p: any) => STATUS_PAGO.includes(String(p.status));
+  const bruto = (p: any) => Number(p.valor ?? 0);
+  // Receita da plataforma por pagamento.
+  const receita = (p: any) =>
+    p.fluxo === "saas"
+      ? (p.net_value != null ? Number(p.net_value) : bruto(p))
+      : Number(p.split_taxa ?? 0);
+  const quando = (p: any) => dataLocalYMD(p.recebido_em ?? p.confirmado_em ?? p.criado_em);
+
+  const agoraMes = dataLocalYMD(new Date()).slice(0, 7);
+  const pagosNoMes = pagamentos.filter(pago).filter((p) => quando(p).slice(0, 7) === agoraMes);
+
+  const faturamentoMes = pagosNoMes.reduce((s, p) => s + receita(p), 0);
+  const volumeProcessadoMes = pagosNoMes.reduce((s, p) => s + bruto(p), 0);
+  const mrrPlataforma = pagosNoMes
+    .filter((p) => p.fluxo === "saas")
+    .reduce((s, p) => s + receita(p), 0);
+  const receitaAcumulada = pagamentos.filter(pago).reduce((s, p) => s + receita(p), 0);
+
+  // Séries por mês (receita da plataforma × GMV).
+  const recPorMes = new Map<string, number>();
+  const gmvPorMes = new Map<string, number>();
+  for (const p of pagamentos) {
+    if (!pago(p)) continue;
+    const chave = quando(p).slice(0, 7);
+    if (!chave) continue;
+    recPorMes.set(chave, (recPorMes.get(chave) ?? 0) + receita(p));
+    gmvPorMes.set(chave, (gmvPorMes.get(chave) ?? 0) + bruto(p));
+  }
+  const serie = (m: Map<string, number>) =>
+    [...m.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-6)
+      .map(([chave, valor]) => ({ mes: MESES_CURTOS[Number(chave.slice(5, 7)) - 1], valor }));
+
+  // Inadimplência da plataforma = consultorias com assinatura SaaS vencida.
+  const { data: consData } = await supabase
+    .from("consultorias")
+    .select("plano_status")
+    .eq("plano_status", "inadimplente");
+  const inadCount = (consData ?? []).length;
+
+  const nomeCons = (p: any) => p.consultorias?.nome_negocio ?? p.consultorias?.nome ?? "Consultoria";
+  const extrato = pagamentos
+    .filter((p) => (p.fluxo === "saas" ? bruto(p) > 0 : Number(p.split_taxa ?? 0) > 0))
+    .slice(0, 40)
+    .map((p) => ({
+      id: p.id,
+      descricao:
+        p.fluxo === "saas"
+          ? `Assinatura · ${nomeCons(p)}`
+          : `Taxa · ${nomeCons(p)}`,
+      tipo: (p.fluxo === "saas" ? "assinatura" : "taxa") as "assinatura" | "taxa",
+      valor: receita(p),
+      metodo: p.billing_type ?? "—",
+      data: quando(p),
+      status: String(p.status ?? ""),
+    }));
+
+  return {
+    mrrPlataforma,
+    faturamentoMes,
+    volumeProcessadoMes,
+    receitaAcumulada,
+    inadimplencia: { valor: 0, consultorias: inadCount },
+    faturamento6m: serie(recPorMes),
+    volume6m: serie(gmvPorMes),
     extrato,
   };
 }
@@ -1341,11 +1492,20 @@ export async function responderCheckin(
   resposta: string
 ): Promise<void> {
   const supabase = createClient();
-  const { error } = await supabase
+  // .select() para conferir as linhas afetadas: com RLS, um UPDATE bloqueado
+  // "funciona" com 0 linhas — sem essa checagem a UI mostraria "Resposta
+  // enviada" sem nada ter sido salvo.
+  const { data, error } = await supabase
     .from("checkins")
     .update({ resposta_coach: resposta, status: "respondido" })
-    .eq("id", checkinId);
+    .eq("id", checkinId)
+    .select("id");
   if (error) throw error;
+  if (!data?.length) {
+    throw new Error(
+      "Nenhuma linha atualizada — check-in inexistente ou sem permissão (RLS)."
+    );
+  }
 }
 
 /** aluno_id do usuário logado (quando o perfil é do tipo aluno). */

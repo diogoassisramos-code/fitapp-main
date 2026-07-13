@@ -27,7 +27,11 @@ const TIPOS: { value: TipoEmpresa; label: string }[] = [
   { value: "LIMITED", label: "LTDA" },
 ];
 
-export function AtivarRecebimento() {
+export function AtivarRecebimento({
+  onStatus,
+}: {
+  onStatus?: (status: string) => void;
+} = {}) {
   const [status, setStatus] = useState<Status>(supabaseEnabled ? "carregando" : "off");
   const [walletId, setWalletId] = useState<string | null>(null);
 
@@ -88,6 +92,11 @@ export function AtivarRecebimento() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  // Informa o status ao pai (a página reordena: aprovado → KPIs primeiro).
+  useEffect(() => {
+    onStatus?.(status);
+  }, [status, onStatus]);
 
   // Enquanto a conta está em análise, busca o link de verificação (documento +
   // selfie). Os documentos só aparecem ~15s após criar a subconta, então tenta

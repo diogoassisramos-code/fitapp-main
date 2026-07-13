@@ -30,12 +30,11 @@ const SECOES = [
   { id: "notificacoes", label: "Notificações", icon: "bell" },
 ];
 
-// "foto" ficou de fora: a tela do aluno não captura upload na anamnese (só no
-// check-in), então uma pergunta de foto viraria um campo de texto inútil.
 const TIPO_PERGUNTA_OPTS: { label: string; value: TipoPergunta }[] = [
   { label: "Texto", value: "texto" },
   { label: "Número", value: "numero" },
   { label: "Escolha", value: "escolha" },
+  { label: "Foto", value: "foto" },
 ];
 
 const CONSELHO_OPTS = [

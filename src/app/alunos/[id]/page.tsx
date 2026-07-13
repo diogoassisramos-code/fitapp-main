@@ -9,6 +9,7 @@ import {
 } from "@/components/ui";
 import { TestAlunoFicha } from "@/components/screens/test-aluno/TestAlunoFicha";
 import { FichaCheckins } from "./FichaCheckins";
+import { FichaAnamnese } from "./FichaAnamnese";
 import {
   getAluno,
   getTreino,
@@ -392,6 +393,8 @@ export default async function FichaAlunoPage({
           </Card>
         </div>
       </section>
+
+      <FichaAnamnese alunoId={aluno.id} />
 
       <FichaCheckins
         alunoId={aluno.id}

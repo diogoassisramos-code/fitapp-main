@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Avatar,
@@ -15,57 +15,49 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
+import { STATUS_CONSULTORIA, type StatusConsultoria } from "@/lib/admin";
 import {
-  listConsultorias,
-  planoPlataformaNome,
-  STATUS_CONSULTORIA,
-  type StatusConsultoria,
-} from "@/lib/admin";
+  adminFetchConsultorias,
+  adminSetConsultoriaStatus,
+  adminDeleteConsultoria,
+  type AdminConsultoria,
+} from "@/lib/adminDb";
 import { brl } from "@/lib/format";
 import styles from "./consultores.module.css";
 
 type Filtro = "todas" | StatusConsultoria;
 
-const FILTROS: { id: Filtro; label: string; match?: StatusConsultoria }[] = [
+const FILTROS: { id: Filtro; label: string }[] = [
   { id: "todas", label: "Todas" },
-  { id: "ativo", label: "Ativas", match: "ativo" },
-  { id: "trial", label: "Trial", match: "trial" },
-  { id: "inadimplente", label: "Inadimplentes", match: "inadimplente" },
-  { id: "suspenso", label: "Suspensas", match: "suspenso" },
+  { id: "ativo", label: "Ativas" },
+  { id: "trial", label: "Trial" },
+  { id: "inadimplente", label: "Inadimplentes" },
+  { id: "suspenso", label: "Suspensas" },
 ];
 
 export default function ConsultoriasPage() {
   const router = useRouter();
-  const todas = listConsultorias();
-
+  const [todas, setTodas] = useState<AdminConsultoria[] | null>(null);
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todas");
+  const [erro, setErro] = useState<string | null>(null);
 
-  const totalConsultorias = todas.length;
-  const totalAlunos = todas.reduce((s, c) => s + c.alunosAtivos, 0);
-  const mrr = todas.reduce(
-    (s, c) => s + (c.status === "ativo" || c.status === "trial" ? c.mrr : 0),
-    0
-  );
+  const carregar = () =>
+    adminFetchConsultorias()
+      .then((c) => setTodas(c))
+      .catch((e) => {
+        setTodas([]);
+        setErro(e instanceof Error ? e.message : "Falha ao carregar.");
+      });
 
-  const contagem = useMemo(() => {
-    const c: Record<Filtro, number> = {
-      todas: todas.length,
-      ativo: 0,
-      trial: 0,
-      inadimplente: 0,
-      suspenso: 0,
-      cancelado: 0,
-    };
-    todas.forEach((x) => {
-      c[x.status] += 1;
-    });
-    return c;
-  }, [todas]);
+  useEffect(() => {
+    carregar();
+  }, []);
 
   const lista = useMemo(() => {
+    const cs = todas ?? [];
     const termo = busca.trim().toLowerCase();
-    return todas.filter((c) => {
+    return cs.filter((c) => {
       if (filtro !== "todas" && c.status !== filtro) return false;
       if (!termo) return true;
       return (
@@ -76,7 +68,36 @@ export default function ConsultoriasPage() {
     });
   }, [todas, busca, filtro]);
 
-  const temFiltro = busca.trim() !== "" || filtro !== "todas";
+  const contagem = useMemo(() => {
+    const cs = todas ?? [];
+    const c: Record<Filtro, number> = { todas: cs.length, ativo: 0, trial: 0, inadimplente: 0, suspenso: 0, cancelado: 0 };
+    cs.forEach((x) => (c[x.status] += 1));
+    return c;
+  }, [todas]);
+
+  const totalConsultorias = (todas ?? []).length;
+  const totalAlunos = (todas ?? []).reduce((s, c) => s + c.alunosAtivos, 0);
+  const mrr = (todas ?? []).reduce((s, c) => s + c.mrr, 0);
+
+  async function alternarStatus(c: AdminConsultoria) {
+    const novo: StatusConsultoria = c.status === "suspenso" ? "ativo" : "suspenso";
+    try {
+      await adminSetConsultoriaStatus(c.id, novo);
+      await carregar();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Falha ao mudar status.");
+    }
+  }
+
+  async function excluir(c: AdminConsultoria) {
+    if (!confirm(`Excluir a consultoria "${c.nomeNegocio}"? Isso remove a consultoria e o vínculo dos seus dados. Ação irreversível.`)) return;
+    try {
+      await adminDeleteConsultoria(c.id);
+      await carregar();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Falha ao excluir.");
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -91,43 +112,18 @@ export default function ConsultoriasPage() {
       />
 
       <div className={styles.metrics}>
-        <MetricCard
-          label="Consultorias"
-          value={totalConsultorias}
-          sub="Contas na plataforma"
-          icon="building-store"
-        />
-        <MetricCard
-          label="Alunos ativos"
-          value={totalAlunos}
-          sub="Somados de todas as consultorias"
-          icon="users"
-        />
-        <MetricCard
-          label="MRR da plataforma"
-          value={brl(mrr)}
-          sub="Assinaturas ativas e trial"
-          icon="currency-dollar"
-        />
+        <MetricCard label="Consultorias" value={totalConsultorias} sub="Contas na plataforma" icon="building-store" />
+        <MetricCard label="Alunos ativos" value={totalAlunos} sub="Somados de todas as consultorias" icon="users" />
+        <MetricCard label="MRR da plataforma" value={brl(mrr)} sub="Assinaturas ativas e trial" icon="currency-dollar" />
       </div>
 
       <div className={styles.controls}>
         <div className={styles.search}>
-          <Input
-            icon="search"
-            placeholder="Buscar por nome, negócio ou e-mail"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
+          <Input icon="search" placeholder="Buscar por nome, negócio ou e-mail" value={busca} onChange={(e) => setBusca(e.target.value)} />
         </div>
         <div className={styles.chips}>
           {FILTROS.map((f) => (
-            <Chip
-              key={f.id}
-              selected={filtro === f.id}
-              count={contagem[f.id]}
-              onClick={() => setFiltro(f.id)}
-            >
+            <Chip key={f.id} selected={filtro === f.id} count={contagem[f.id]} onClick={() => setFiltro(f.id)}>
               {f.label}
             </Chip>
           ))}
@@ -135,21 +131,16 @@ export default function ConsultoriasPage() {
       </div>
 
       <Card padded={false}>
-        {lista.length === 0 ? (
+        {todas === null ? (
+          <p className={styles.carregando}>Carregando…</p>
+        ) : lista.length === 0 ? (
           <EmptyState
             icon="search-off"
-            title="Nenhuma consultoria encontrada"
-            description="Ajuste a busca ou os filtros para ver outras consultorias."
+            title={erro ? "Não foi possível carregar" : "Nenhuma consultoria encontrada"}
+            description={erro ?? "Ajuste a busca ou os filtros para ver outras consultorias."}
             action={
-              <Button
-                variant="outline"
-                icon="rotate"
-                onClick={() => {
-                  setBusca("");
-                  setFiltro("todas");
-                }}
-              >
-                Limpar filtros
+              <Button variant="outline" icon="rotate" onClick={() => { setBusca(""); setFiltro("todas"); carregar(); }}>
+                {erro ? "Tentar de novo" : "Limpar filtros"}
               </Button>
             }
           />
@@ -166,50 +157,22 @@ export default function ConsultoriasPage() {
                   title={<span className={styles.nome}>{c.nomeNegocio}</span>}
                   action={
                     <div className={styles.rowActions}>
-                      <StatusBadge variant={badge.variant}>
-                        {badge.label}
-                      </StatusBadge>
+                      <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
                       <span className={styles.alunos}>
                         <i className="ti ti-users" aria-hidden />
                         {c.alunosAtivos} alunos
                       </span>
                       <KebabMenu
                         items={[
-                          {
-                            label: "Ver detalhes",
-                            icon: "eye",
-                            onClick: verDetalhes,
-                          },
-                          {
-                            label: "Editar",
-                            icon: "pencil",
-                            onClick: () =>
-                              router.push(`/admin/consultores/${c.id}/editar`),
-                          },
-                          {
-                            label:
-                              c.status === "suspenso" ? "Reativar" : "Suspender",
-                            icon:
-                              c.status === "suspenso"
-                                ? "player-play"
-                                : "player-pause",
-                          },
-                          {
-                            label: "Excluir",
-                            icon: "trash",
-                            danger: true,
-                            separatorBefore: true,
-                          },
+                          { label: "Ver detalhes", icon: "eye", onClick: verDetalhes },
+                          { label: "Editar", icon: "pencil", onClick: () => router.push(`/admin/consultores/${c.id}/editar`) },
+                          { label: c.status === "suspenso" ? "Reativar" : "Suspender", icon: c.status === "suspenso" ? "player-play" : "player-pause", onClick: () => alternarStatus(c) },
+                          { label: "Excluir", icon: "trash", danger: true, separatorBefore: true, onClick: () => excluir(c) },
                         ]}
                       />
                     </div>
                   }
-                  meta={
-                    <>
-                      {c.consultor} · {planoPlataformaNome(c.planoPlataformaId)} ·
-                      MRR {brl(c.mrr)} · {c.cidade}
-                    </>
-                  }
+                  meta={<>{c.consultor} · plano {c.planoSlug} · MRR {brl(c.mrr)}</>}
                 />
               );
             })}

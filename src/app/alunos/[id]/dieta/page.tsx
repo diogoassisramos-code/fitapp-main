@@ -65,6 +65,9 @@ export default function DietaPage({
   const [salvando, setSalvando] = useState(false);
   const [erroSalvar, setErroSalvar] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+  // Refeição-alvo da busca/criação: onde o alimento é adicionado. Antes era
+  // sempre a 1ª refeição — por isso tudo caía na Refeição 1.
+  const [refeicaoAlvoId, setRefeicaoAlvoId] = useState<string | null>(null);
 
   // Com Supabase: carrega a dieta existente do aluno (se houver).
   useEffect(() => {
@@ -144,6 +147,10 @@ export default function DietaPage({
   function kcalRefeicao(r: Refeicao) {
     return r.alimentos.reduce((s, a) => s + a.macros.kcal, 0);
   }
+
+  // Refeição onde os alimentos serão adicionados (a selecionada, ou a 1ª).
+  const alvoAtual =
+    refeicoes.find((r) => r.id === refeicaoAlvoId) ?? refeicoes[0];
 
   // Gera id único a partir do contador incremental no estado.
   function novoId(prefix: string) {
@@ -241,7 +248,7 @@ export default function DietaPage({
   // Cria um alimento próprio a partir do formulário do modal.
   function criarAlimento() {
     if (!form.nome.trim()) return;
-    const refeicaoAlvo = refeicoes[0];
+    const refeicaoAlvo = alvoAtual;
     if (!refeicaoAlvo) return;
 
     const algumMacro =
@@ -277,10 +284,10 @@ export default function DietaPage({
     setCriarOpen(false);
   }
 
-  // Adiciona à primeira refeição (atalho da busca)
-  function adicionarNaPrimeira(m: AlimentoModelo) {
-    if (refeicoes.length === 0) return;
-    adicionarAlimento(refeicoes[0].id, m);
+  // Adiciona à refeição-alvo selecionada (ou à 1ª, se nenhuma).
+  function adicionarNoAlvo(m: AlimentoModelo) {
+    if (!alvoAtual) return;
+    adicionarAlimento(alvoAtual.id, m);
   }
 
   function removerAlimento(refeicaoId: string, alimentoId: string) {
@@ -360,11 +367,35 @@ export default function DietaPage({
             </span>
           }
           action={
-            <span className={styles.searchHint}>
-              {refeicoes.length === 0
-                ? "Crie uma refeição para adicionar alimentos"
-                : `Adiciona em: ${refeicoes[0].nome}`}
-            </span>
+            refeicoes.length === 0 ? (
+              <span className={styles.searchHint}>
+                Crie uma refeição para adicionar alimentos
+              </span>
+            ) : (
+              <label className={styles.searchHint} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                Adiciona em:
+                <select
+                  value={alvoAtual?.id ?? ""}
+                  onChange={(e) => setRefeicaoAlvoId(e.target.value)}
+                  aria-label="Refeição onde adicionar o alimento"
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: "var(--color-text-primary)",
+                    background: "var(--color-background-secondary)",
+                    border: "1px solid var(--color-border-secondary)",
+                    borderRadius: 8,
+                    padding: "6px 8px",
+                  }}
+                >
+                  {refeicoes.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
           }
         />
         <div className={styles.searchBody}>
@@ -412,7 +443,7 @@ export default function DietaPage({
                     size="sm"
                     icon="plus"
                     disabled={semRefeicoes}
-                    onClick={() => adicionarNaPrimeira(m)}
+                    onClick={() => adicionarNoAlvo(m)}
                   >
                     Adicionar
                   </Button>
@@ -671,10 +702,10 @@ export default function DietaPage({
         }
       >
         <div className={styles.modalBody}>
-          {refeicoes[0] && (
+          {alvoAtual && (
             <p className={styles.modalAlvo}>
               <i className="ti ti-arrow-down-right" aria-hidden /> Adiciona em:{" "}
-              <strong>{refeicoes[0].nome}</strong>
+              <strong>{alvoAtual.nome}</strong>
             </p>
           )}
 

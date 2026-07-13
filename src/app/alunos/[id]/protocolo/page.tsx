@@ -142,10 +142,11 @@ export default function ProtocoloPage({
     );
   }
 
-  // Atalho da busca: adiciona no primeiro bloco.
-  function adicionarNaPrimeira(m: SuplementoModelo) {
-    if (blocos.length === 0) return;
-    adicionarItem(blocos[0].id, itemDeModelo(m, novoId("i")));
+  // Busca: adiciona no bloco-alvo selecionado (ou no 1º, se nenhum).
+  function adicionarNoAlvo(m: SuplementoModelo) {
+    const alvo = blocos.find((b) => b.id === blocoAlvoId) ?? blocos[0];
+    if (!alvo) return;
+    adicionarItem(alvo.id, itemDeModelo(m, novoId("i")));
   }
 
   // Atualiza campos editáveis de um item imutavelmente.
@@ -283,11 +284,35 @@ export default function ProtocoloPage({
             </span>
           }
           action={
-            <span className={styles.searchHint}>
-              {semBlocos
-                ? "Crie um bloco para adicionar itens"
-                : `Adiciona em: ${blocos[0].nome}`}
-            </span>
+            semBlocos ? (
+              <span className={styles.searchHint}>
+                Crie um bloco para adicionar itens
+              </span>
+            ) : (
+              <label className={styles.searchHint} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                Adiciona em:
+                <select
+                  value={blocoAlvo?.id ?? ""}
+                  onChange={(e) => setBlocoAlvoId(e.target.value)}
+                  aria-label="Bloco onde adicionar o item"
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: "var(--color-text-primary)",
+                    background: "var(--color-background-secondary)",
+                    border: "1px solid var(--color-border-secondary)",
+                    borderRadius: 8,
+                    padding: "6px 8px",
+                  }}
+                >
+                  {blocos.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
           }
         />
         <div className={styles.searchBody}>
@@ -333,7 +358,7 @@ export default function ProtocoloPage({
                     size="sm"
                     icon="plus"
                     disabled={semBlocos}
-                    onClick={() => adicionarNaPrimeira(m)}
+                    onClick={() => adicionarNoAlvo(m)}
                   >
                     Adicionar
                   </Button>

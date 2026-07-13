@@ -16,6 +16,8 @@ import {
   Avatar,
 } from "@/components/ui";
 import type { BadgeVariant } from "@/components/ui";
+import { adminFetchAsaasFee } from "@/lib/adminDb";
+import { brl } from "@/lib/format";
 import styles from "./configuracoes.module.css";
 
 const SECOES = [
@@ -128,6 +130,12 @@ export default function AdminConfiguracoesPage() {
   const [taxaSalvando, setTaxaSalvando] = useState(false);
   const [taxaMsg, setTaxaMsg] = useState("");
 
+  // Simulador de split: taxa real do Asaas (derivada dos pagamentos) + base.
+  const [asaasFeePct, setAsaasFeePct] = useState("1.99"); // estimativa PIX até haver dados
+  const [feeAmostra, setFeeAmostra] = useState<number>(0);
+  const [feeReal, setFeeReal] = useState<number | null>(null);
+  const [baseSim, setBaseSim] = useState("100");
+
   // Carrega a taxa real da plataforma (Fluxo 2 / split).
   useEffect(() => {
     let active = true;
@@ -135,6 +143,22 @@ export default function AdminConfiguracoesPage() {
       .then((r) => r.json())
       .then((d) => {
         if (active && d?.taxaPct != null) setTaxa(String(d.taxaPct));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Taxa efetiva do Asaas derivada dos pagamentos reais (bruto − líquido).
+  useEffect(() => {
+    let active = true;
+    adminFetchAsaasFee()
+      .then((f) => {
+        if (!active) return;
+        setFeeAmostra(f.amostra);
+        setFeeReal(f.feePct);
+        if (f.feePct != null) setAsaasFeePct(f.feePct.toFixed(2));
       })
       .catch(() => {});
     return () => {
@@ -177,6 +201,18 @@ export default function AdminConfiguracoesPage() {
     inadimplencia: true,
     churn: false,
   });
+
+  // Simulação de split — quanto de cada pagamento do aluno fica com cada parte.
+  // Asaas cobra a taxa do gateway sobre o BRUTO; a Revo retém `taxa%` do LÍQUIDO
+  // (após o Asaas); o consultor recebe o restante. Reage à taxa que você digita.
+  const baseNum = Math.max(0, Number(String(baseSim).replace(",", ".")) || 0);
+  const feeNum = Math.max(0, Math.min(100, Number(String(asaasFeePct).replace(",", ".")) || 0));
+  const taxaNum = Math.max(0, Math.min(100, Number(String(taxa).replace(",", ".")) || 0));
+  const simAsaas = (baseNum * feeNum) / 100;
+  const simLiquido = baseNum - simAsaas;
+  const simRevo = (simLiquido * taxaNum) / 100;
+  const simCoach = simLiquido - simRevo;
+  const simPct = (v: number) => (baseNum > 0 ? (v / baseNum) * 100 : 0);
 
   return (
     <div className={styles.page}>
@@ -278,6 +314,74 @@ export default function AdminConfiguracoesPage() {
                   Taxa retida pela plataforma no split de cada pagamento
                   aluno→coach. O coach recebe o restante no walletId dele.
                 </Nota>
+
+                {/* Simulador de precificação do split (reage à taxa acima) */}
+                <div className={styles.simulador}>
+                  <div className={styles.simHead}>
+                    <span className={styles.simTitulo}>
+                      <i className="ti ti-calculator" aria-hidden /> Simulação do split
+                    </span>
+                    <span className={styles.simFonte}>
+                      {feeReal != null
+                        ? `Asaas cobrando ≈ ${feeReal.toFixed(2)}% (${feeAmostra} cobrança${feeAmostra === 1 ? "" : "s"} reais)`
+                        : "Sem cobranças ainda — usando estimativa"}
+                    </span>
+                  </div>
+
+                  <div className={styles.simInputs}>
+                    <Input
+                      label="Base (R$)"
+                      prefix="R$"
+                      inputMode="decimal"
+                      value={baseSim}
+                      onChange={(e) => setBaseSim(e.target.value)}
+                    />
+                    <Input
+                      label="Taxa do Asaas (gateway) %"
+                      prefix="%"
+                      inputMode="decimal"
+                      value={asaasFeePct}
+                      onChange={(e) => setAsaasFeePct(e.target.value)}
+                      hint={feeReal != null ? "Pré-preenchido com a média real; edite para simular." : "Estimativa (ex.: PIX ≈ 1,99%); edite conforme seu contrato."}
+                    />
+                  </div>
+
+                  {/* Barra proporcional */}
+                  <div className={styles.simBar} role="img" aria-label="Divisão do pagamento">
+                    <span className={styles.segAsaas} style={{ width: `${simPct(simAsaas)}%` }} />
+                    <span className={styles.segRevo} style={{ width: `${simPct(simRevo)}%` }} />
+                    <span className={styles.segCoach} style={{ width: `${simPct(simCoach)}%` }} />
+                  </div>
+
+                  <div className={styles.simRows}>
+                    <div className={styles.simRow}>
+                      <span className={styles.simDot} data-parte="asaas" />
+                      <span className={styles.simNome}>Asaas (gateway)</span>
+                      <span className={styles.simPct}>{simPct(simAsaas).toFixed(1)}%</span>
+                      <span className={styles.simValor}>{brl(simAsaas)}</span>
+                    </div>
+                    <div className={styles.simRow} data-destaque>
+                      <span className={styles.simDot} data-parte="revo" />
+                      <span className={styles.simNome}>Revo (plataforma)</span>
+                      <span className={styles.simPct}>{simPct(simRevo).toFixed(1)}%</span>
+                      <span className={styles.simValor}>{brl(simRevo)}</span>
+                    </div>
+                    <div className={styles.simRow}>
+                      <span className={styles.simDot} data-parte="coach" />
+                      <span className={styles.simNome}>Consultor recebe</span>
+                      <span className={styles.simPct}>{simPct(simCoach).toFixed(1)}%</span>
+                      <span className={styles.simValor}>{brl(simCoach)}</span>
+                    </div>
+                  </div>
+
+                  <p className={styles.simNota}>
+                    A cada {brl(baseNum)}, o Asaas fica com {brl(simAsaas)} e sobra{" "}
+                    {brl(simLiquido)} líquido — desse líquido, a Revo retém{" "}
+                    <strong>{brl(simRevo)}</strong> ({taxaNum}%) e o consultor recebe{" "}
+                    <strong>{brl(simCoach)}</strong>.
+                  </p>
+                </div>
+
                 {taxaMsg && <p className={styles.fieldHint}>{taxaMsg}</p>}
                 <div className={styles.saveBar}>
                   <Button icon="check" onClick={salvarTaxa} disabled={taxaSalvando}>

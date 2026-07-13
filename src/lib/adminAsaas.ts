@@ -1,0 +1,96 @@
+// ============================================================================
+// Cliente (browser) das rotas financeiras admin da conta MASTER do Asaas.
+// Wrappers finos sobre /api/admin/asaas/* — a chave master nunca sai do servidor.
+// Cada função lança Error com a mensagem da API em caso de falha (o chamador
+// distingue 503 = Asaas não configurado, 403 = não é admin, etc. pela mensagem).
+// ============================================================================
+
+export type SaldoMaster = { saldo: number };
+
+export type LancamentoExtrato = {
+  id: string;
+  valor: number;
+  saldo: number | null;
+  tipo: string;
+  descricao: string;
+  data: string;
+};
+
+export type SaqueMaster = {
+  id: string;
+  status: string;
+  valor: number;
+  valorLiquido: number | null;
+  taxa: number | null;
+  tipo: string;
+  criadoEm: string;
+  efetivadoEm: string;
+  descricao: string;
+};
+
+export type SincronizarResultado = {
+  pagamentos: number;
+  consultoriasAtualizadas: number;
+  alunosAtualizados: number;
+};
+
+/** Erro de API com o status HTTP preservado (para distinguir 503/403/409). */
+export class AdminAsaasError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "AdminAsaasError";
+    this.status = status;
+  }
+}
+
+async function pedir<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  const txt = await res.text();
+  const body = txt ? JSON.parse(txt) : {};
+  if (!res.ok) {
+    throw new AdminAsaasError(res.status, body?.erro || `falha (${res.status})`);
+  }
+  return body as T;
+}
+
+export function fetchSaldoMaster(): Promise<SaldoMaster> {
+  return pedir<SaldoMaster>("/api/admin/asaas/saldo");
+}
+
+export function fetchExtratoMaster(
+  limit = 50
+): Promise<{ lancamentos: LancamentoExtrato[]; total: number | null }> {
+  return pedir(`/api/admin/asaas/extrato?limit=${limit}`);
+}
+
+export function fetchSaques(): Promise<{ saques: SaqueMaster[] }> {
+  return pedir("/api/admin/asaas/transferencias");
+}
+
+export function sincronizarPlataforma(): Promise<SincronizarResultado> {
+  return pedir<SincronizarResultado>("/api/admin/asaas/sincronizar", {
+    method: "POST",
+  });
+}
+
+export type SolicitarSaqueInput = {
+  valor: number;
+  chavePix: string;
+  tipoChave?: "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
+  descricao?: string;
+};
+
+/**
+ * Solicita um saque PIX da conta master. Sempre envia `confirmar:true` — a
+ * confirmação de fato acontece na UI (modal) ANTES de chamar esta função.
+ */
+export function solicitarSaque(
+  input: SolicitarSaqueInput
+): Promise<{ saque: { id: string; status: string; valor: number } }> {
+  return pedir("/api/admin/asaas/transferencias", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...input, confirmar: true }),
+  });
+}

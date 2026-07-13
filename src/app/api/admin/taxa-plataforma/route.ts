@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { guardAdmin } from "@/lib/apiAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,20 +34,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: "taxa inválida (0–100)" }, { status: 400 });
   }
 
-  // Só admin pode alterar.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ erro: "não autenticado" }, { status: 401 });
-  const { data: prof } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (prof?.role !== "admin") {
-    return NextResponse.json({ erro: "apenas admin" }, { status: 403 });
-  }
+  // Só admin (por e-mail) pode alterar.
+  const negado = await guardAdmin();
+  if (negado) return negado;
 
   // Grava via service_role (a tabela não tem grant de update para authenticated).
   const admin = createAdminClient();

@@ -7,6 +7,7 @@ import { Topbar } from "./Topbar";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { AlunoShell } from "@/components/aluno/AlunoShell";
 import { isAuthed, isPublicPath } from "@/lib/auth";
+import { isAdminEmail } from "@/lib/adminAccess";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient } from "@/utils/supabase/client";
 import styles from "./AppShell.module.css";
@@ -40,6 +41,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
     let active = true;
     let settled = false;
+    // Guarda de papel: sessão de ALUNO não renderiza a área do consultor/admin.
+    // Espelha o middleware (defesa em profundidade — cobre o pós-OAuth, quando o
+    // cookie só assenta depois do proxy rodar). Retorna true se redirecionou.
+    const guardAluno = (session: { user?: { user_metadata?: { role?: string } } } | null) => {
+      const role = session?.user?.user_metadata?.role;
+      if (role === "aluno" && !pathname.startsWith("/aluno")) {
+        setReady(false);
+        router.replace("/aluno");
+        return true;
+      }
+      return false;
+    };
+    // Gate do painel admin (espelha o middleware): quem não é admin da allowlist
+    // e tenta abrir /admin/* volta pro login. Retorna true se redirecionou.
+    const guardAdminPanel = (session: { user?: { email?: string } } | null) => {
+      const naAreaAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+      if (naAreaAdmin && !isAdminEmail(session?.user?.email)) {
+        setReady(false);
+        router.replace("/login");
+        return true;
+      }
+      return false;
+    };
     // Se a sessão não resolver em 6s (Supabase dormindo/cold-start/522),
     // renderiza o chrome em vez de ficar em branco; os dados carregam quando
     // o Supabase voltar (ou o onAuthStateChange corrige).
@@ -58,7 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         if (!data.session) {
           setReady(false);
           router.replace("/login");
-        } else {
+        } else if (!guardAdminPanel(data.session) && !guardAluno(data.session)) {
           setReady(true);
         }
       })
@@ -74,7 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (!session) {
         setReady(false);
         router.replace("/login");
-      } else {
+      } else if (!guardAdminPanel(session) && !guardAluno(session)) {
         setReady(true);
       }
     });

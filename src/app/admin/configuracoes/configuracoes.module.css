@@ -219,3 +219,104 @@
     top: auto;
   }
 }
+
+/* ---------- Simulador de split (Cobrança) ---------- */
+.simulador {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-secondary);
+}
+.simHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.simTitulo {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.simFonte {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+.simInputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.simBar {
+  display: flex;
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-background-tertiary);
+}
+.simBar > span {
+  height: 100%;
+  transition: width 0.18s ease;
+}
+.segAsaas { background: var(--color-text-warning); }
+.segRevo { background: var(--color-text-info); }
+.segCoach { background: var(--color-text-success); }
+.simRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.simRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+.simRow + .simRow {
+  border-top: 1px solid var(--color-border-tertiary);
+}
+.simDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.simDot[data-parte="asaas"] { background: var(--color-text-warning); }
+.simDot[data-parte="revo"] { background: var(--color-text-info); }
+.simDot[data-parte="coach"] { background: var(--color-text-success); }
+.simNome {
+  color: var(--color-text-secondary);
+}
+.simRow[data-destaque] .simNome {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+.simPct {
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+.simValor {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 84px;
+  text-align: right;
+}
+.simNota {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+@media (max-width: 640px) {
+  .simInputs {
+    grid-template-columns: 1fr;
+  }
+}
