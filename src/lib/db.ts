@@ -164,6 +164,8 @@ export type FinanceiroReal = {
   faturamento: { mes: string; valor: number }[];
   extrato: {
     id: string;
+    /** id da cobrança no Asaas — necessário para estornar. */
+    asaasPaymentId: string | null;
     alunoNome: string;
     /** Líquido do coach (headline). */
     valor: number;
@@ -213,7 +215,7 @@ export async function fetchFinanceiro(): Promise<FinanceiroReal> {
 
   const { data: pagData } = await supabase
     .from("pagamentos")
-    .select("id, valor, net_value, split_taxa, billing_type, status, confirmado_em, recebido_em, criado_em, aluno_id, alunos(nome)")
+    .select("id, asaas_payment_id, valor, net_value, split_taxa, billing_type, status, confirmado_em, recebido_em, criado_em, aluno_id, alunos(nome)")
     .eq("fluxo", "mensalidade")
     .order("criado_em", { ascending: false });
   const pagamentos = (pagData ?? []) as any[];
@@ -275,6 +277,7 @@ export async function fetchFinanceiro(): Promise<FinanceiroReal> {
     const netCobranca = p.net_value != null ? Number(p.net_value) : b;
     return {
       id: p.id,
+      asaasPaymentId: p.asaas_payment_id ?? null,
       alunoNome: p.alunos?.nome ?? "Aluno",
       valor: liquido(p),
       valorBruto: b,
@@ -325,6 +328,8 @@ export type AdminFinanceiroReal = {
   volume6m: { mes: string; valor: number }[];
   extrato: {
     id: string;
+    /** id da cobrança no Asaas — necessário para estornar. */
+    asaasPaymentId: string | null;
     descricao: string;
     tipo: "assinatura" | "taxa";
     valor: number;
@@ -344,7 +349,7 @@ export async function fetchAdminFinanceiro(): Promise<AdminFinanceiroReal> {
 
   const { data: pagData, error } = await supabase
     .from("pagamentos")
-    .select("id, fluxo, valor, net_value, split_taxa, billing_type, status, confirmado_em, recebido_em, criado_em, consultoria_id, consultorias(nome_negocio, nome)")
+    .select("id, asaas_payment_id, fluxo, valor, net_value, split_taxa, billing_type, status, confirmado_em, recebido_em, criado_em, consultoria_id, consultorias(nome_negocio, nome)")
     .order("criado_em", { ascending: false });
   if (error) return vazio; // sem permissão / tabela ausente → estado honesto
   const pagamentos = (pagData ?? []) as any[];
@@ -395,6 +400,7 @@ export async function fetchAdminFinanceiro(): Promise<AdminFinanceiroReal> {
     .slice(0, 40)
     .map((p) => ({
       id: p.id,
+      asaasPaymentId: p.asaas_payment_id ?? null,
       descricao:
         p.fluxo === "saas"
           ? `Assinatura · ${nomeCons(p)}`

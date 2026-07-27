@@ -10,6 +10,7 @@ import {
 import { TestAlunoFicha } from "@/components/screens/test-aluno/TestAlunoFicha";
 import { FichaCheckins } from "./FichaCheckins";
 import { FichaAnamnese } from "./FichaAnamnese";
+import { GerenciarAssinatura } from "./GerenciarAssinatura";
 import {
   getAluno,
   getTreino,
@@ -26,8 +27,18 @@ import {
 } from "@/lib/format";
 import type { Aluno, Dieta, Protocolo } from "@/lib/types";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
+import { asaasEnabled } from "@/lib/asaasEnabled";
+import { getAssinatura } from "@/lib/asaas";
 import { createClient as createServerSupabase } from "@/utils/supabase/server";
 import styles from "./ficha.module.css";
+
+/** Sufixo do valor por recorrência do plano (anual → /ano). */
+const RECOR_SUFIXO: Record<string, string> = {
+  semanal: "/semana",
+  mensal: "/mês",
+  trimestral: "/trimestre",
+  anual: "/ano",
+};
 
 /** Dieta do aluno no Supabase (server-side; o card usa metaKcal + nº de refeições). */
 async function fetchDietaFromDb(alunoId: string): Promise<Dieta | undefined> {
@@ -125,6 +136,50 @@ async function fetchTreinosResumo(
       treinos.map((t) => t.id)
     );
   return { qtd: treinos.length, exercicios: count ?? 0, nome: treinos[0].nome };
+}
+
+/** Assinatura do aluno: se existe (habilita cancelar) + próximo vencimento real
+ *  (nextDueDate do Asaas). */
+async function fetchAssinaturaInfo(
+  alunoId: string
+): Promise<{ temAssinatura: boolean; proximoVencimento: string | null }> {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase
+    .from("alunos")
+    .select("asaas_subscription_id")
+    .eq("id", alunoId)
+    .maybeSingle();
+  const subId = (data?.asaas_subscription_id as string) ?? null;
+  if (!subId) return { temAssinatura: false, proximoVencimento: null };
+  let proximoVencimento: string | null = null;
+  if (asaasEnabled) {
+    try {
+      const a = await getAssinatura(subId);
+      proximoVencimento = a.nextDueDate ?? null;
+    } catch {
+      /* sem o vencimento ao vivo → cai pro do banco */
+    }
+  }
+  return { temAssinatura: true, proximoVencimento };
+}
+
+/** Plano REAL do aluno (tabela planos) — nome, preço e recorrência. O mock
+ *  getPlano/planoNome não conhece planos do banco (mostrava "—"). */
+async function fetchPlanoDb(
+  planoId: string
+): Promise<{ nome: string; preco: number; periodo: string | null } | null> {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase
+    .from("planos")
+    .select("nome, preco, periodo_recorrencia")
+    .eq("id", planoId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    nome: data.nome,
+    preco: Number(data.preco ?? 0),
+    periodo: (data.periodo_recorrencia as string) ?? null,
+  };
 }
 
 /** Busca o aluno no Supabase (server-side, sessão via cookie). */
@@ -232,6 +287,22 @@ export default async function FichaAlunoPage({
     protocolo = await fetchProtocoloFromDb(aluno.id);
   const protocoloItens =
     protocolo?.blocos.reduce((acc, b) => acc + b.itens.length, 0) ?? 0;
+  // Assinatura + plano REAIS (não o mock) para o card de pagamento.
+  const assinaturaInfo = supabaseEnabled
+    ? await fetchAssinaturaInfo(aluno.id)
+    : { temAssinatura: false, proximoVencimento: null };
+  const planoDb =
+    supabaseEnabled && aluno.planoId ? await fetchPlanoDb(aluno.planoId) : null;
+  const nomePlano =
+    planoDb?.nome ?? (aluno.planoId ? planoNome(aluno.planoId) : "Sem plano");
+  const valorLabel = planoDb
+    ? `${brl(planoDb.preco)}${planoDb.periodo ? " " + (RECOR_SUFIXO[planoDb.periodo] ?? "") : ""}`
+    : plano
+      ? brl(plano.preco)
+      : "—";
+  const proximoVencimento =
+    assinaturaInfo.proximoVencimento || aluno.proximoVencimento || "";
+  const temAssinatura = assinaturaInfo.temAssinatura;
   return (
     <div className={styles.page}>
       {/* 1) Header */}
@@ -247,7 +318,7 @@ export default async function FichaAlunoPage({
                   <span className={styles.dot}>·</span>
                 </>
               )}
-              <span>{aluno.planoId ? planoNome(aluno.planoId) : "Sem plano"}</span>
+              <span>{nomePlano}</span>
               {aluno.objetivo ? (
                 <>
                   <span className={styles.dot}>·</span>
@@ -287,9 +358,7 @@ export default async function FichaAlunoPage({
         />
         <MetricCard
           label="Próx. vencimento"
-          value={
-            aluno.proximoVencimento ? dataLonga(aluno.proximoVencimento) : "—"
-          }
+          value={proximoVencimento ? dataLonga(proximoVencimento) : "—"}
           sub={status.label}
           icon="calendar"
         />
@@ -417,15 +486,11 @@ export default async function FichaAlunoPage({
           <CardBody className={styles.payBody}>
             <div className={styles.payRow}>
               <span className={styles.payLabel}>Plano</span>
-              <span className={styles.payValue}>
-                {aluno.planoId ? planoNome(aluno.planoId) : "Sem plano"}
-              </span>
+              <span className={styles.payValue}>{nomePlano}</span>
             </div>
             <div className={styles.payRow}>
               <span className={styles.payLabel}>Valor</span>
-              <span className={styles.payValue}>
-                {plano ? brl(plano.preco) : "—"}
-              </span>
+              <span className={styles.payValue}>{valorLabel}</span>
             </div>
             <div className={styles.payRow}>
               <span className={styles.payLabel}>Status</span>
@@ -434,11 +499,10 @@ export default async function FichaAlunoPage({
             <div className={styles.payRow}>
               <span className={styles.payLabel}>Próx. vencimento</span>
               <span className={styles.payValue}>
-                {aluno.proximoVencimento
-                  ? dataLonga(aluno.proximoVencimento)
-                  : "—"}
+                {proximoVencimento ? dataLonga(proximoVencimento) : "—"}
               </span>
             </div>
+            <GerenciarAssinatura alunoId={aluno.id} temAssinatura={temAssinatura} />
           </CardBody>
         </Card>
 

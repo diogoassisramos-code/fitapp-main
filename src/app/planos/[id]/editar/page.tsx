@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { PlanoEditor } from "@/components/screens/plano-editor/PlanoEditor";
+import { GateConsultoria } from "@/components/GateConsultoria";
 import { getPlano } from "@/lib/data";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { fetchPlanoById } from "@/lib/db";
@@ -45,5 +46,9 @@ export default function EditarPlanoPage({
       </div>
     );
   }
-  return <PlanoEditor plano={plano} />;
+  return (
+    <GateConsultoria>
+      <PlanoEditor plano={plano} />
+    </GateConsultoria>
+  );
 }

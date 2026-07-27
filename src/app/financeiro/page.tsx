@@ -14,6 +14,7 @@ import {
   Input,
   EmptyState,
   PointsChart,
+  KebabMenu,
 } from "@/components/ui";
 import {
   coach,
@@ -22,6 +23,7 @@ import {
   listTransacoes,
 } from "@/lib/data";
 import { brl, dataCurta } from "@/lib/format";
+import { baixarCsv, csvNum } from "@/lib/csv";
 import type { Transacao } from "@/lib/types";
 import type { BadgeVariant } from "@/components/ui/StatusBadge";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
@@ -58,6 +60,8 @@ export default function FinanceiroPage() {
   const [filtroExtrato, setFiltroExtrato] = useState<FiltroExtrato>("todos");
 
   const [saldoAsaas, setSaldoAsaas] = useState<number | null>(null);
+  const [aLiberarAsaas, setALiberarAsaas] = useState<number | null>(null);
+  const [proximaLiberacao, setProximaLiberacao] = useState<string | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
 
@@ -74,16 +78,49 @@ export default function FinanceiroPage() {
     fetchFinanceiro()
       .then(setReal)
       .catch(() => {});
-    // Saldo REAL da subconta no Asaas (o split cai direto na wallet do coach).
+    // Saldo REAL da subconta no Asaas (o split cai direto na wallet do coach) +
+    // "a liberar" e a data estimada da próxima liberação (cartão libera depois).
     fetch("/api/asaas/saldo")
       .then((r) => r.json())
-      .then((d) => d?.ok && setSaldoAsaas(Number(d.saldo)))
+      .then((d) => {
+        if (!d?.ok) return;
+        setSaldoAsaas(Number(d.saldo));
+        if (d.aLiberar != null) setALiberarAsaas(Number(d.aLiberar));
+        setProximaLiberacao(d.proximaLiberacao ?? null);
+      })
       .catch(() => {});
   }, [emReal]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  // Estorna uma cobrança de aluno (Asaas reverte o split). Feedback reusa syncMsg.
+  async function estornar(asaasPaymentId: string, alunoNome: string) {
+    if (
+      !confirm(
+        `Estornar a cobrança de ${alunoNome}? O valor volta para o aluno e o split é revertido. Esta ação não pode ser desfeita.`
+      )
+    )
+      return;
+    setSyncMsg("");
+    try {
+      const res = await fetch("/api/asaas/pagamento/estornar", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ asaasPaymentId }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.ok) {
+        setSyncMsg("Cobrança estornada.");
+        carregar();
+      } else {
+        setSyncMsg(d.erro || "Falha ao estornar.");
+      }
+    } catch {
+      setSyncMsg("Falha de conexão.");
+    }
+  }
 
   // Reconciliação PULL: puxa as cobranças do Asaas (fallback quando o webhook não
   // chegou) e recarrega os KPIs/extrato.
@@ -114,7 +151,21 @@ export default function FinanceiroPage() {
   const saldoDisponivel = emReal
     ? saldoAsaas ?? real?.saldo ?? 0
     : financeiro.saldoDisponivel;
-  const aLiberar = emReal ? real?.aLiberar ?? 0 : financeiro.aLiberar;
+  const aLiberar = emReal ? aLiberarAsaas ?? real?.aLiberar ?? 0 : financeiro.aLiberar;
+  // Prazo de liberação real (Asaas): cartão libera depois (~D+30); PIX cai na hora.
+  const diasParaLiberar = proximaLiberacao
+    ? Math.max(
+        0,
+        Math.ceil((new Date(proximaLiberacao).getTime() - Date.now()) / 86400000)
+      )
+    : null;
+  const liberarSub = !emReal
+    ? "em processamento"
+    : proximaLiberacao
+      ? `libera ${dataCurta(proximaLiberacao)}${diasParaLiberar != null ? ` · ~${diasParaLiberar}d` : ""}`
+      : aLiberar > 0
+        ? "cartão em até ~30 dias"
+        : "em processamento";
   const recebidoMes = emReal ? real?.recebidoMes ?? 0 : financeiro.recebidoMes;
   const recebidoMesBruto = emReal ? real?.recebidoMesBruto ?? 0 : financeiro.recebidoMes;
   const mrr = emReal ? real?.mrr ?? 0 : financeiro.mrr;
@@ -136,6 +187,59 @@ export default function FinanceiroPage() {
     setValorSaque(saldoDisponivel.toFixed(2).replace(".", ","));
     setSacarAberto(true);
   };
+
+  // Export contábil do extrato (CSV) — abre no Excel/Sheets.
+  function exportarExtrato() {
+    const linhas = (extratoReal ?? []).map((t) => [
+      t.data ?? "",
+      t.alunoNome,
+      t.metodo,
+      statusExtrato(t.status).label,
+      csvNum(t.valorBruto),
+      csvNum(t.taxaGateway),
+      csvNum(t.taxaPlataforma),
+      csvNum(t.valor),
+    ]);
+    baixarCsv(
+      `extrato-revo-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Data", "Aluno", "Método", "Status", "Bruto (R$)", "Taxa gateway (R$)", "Taxa plataforma (R$)", "Líquido (R$)"],
+      linhas
+    );
+  }
+
+  // Fechamento mensal (CSV): totais por mês do extrato carregado.
+  function exportarFechamento() {
+    const porMes = new Map<
+      string,
+      { bruto: number; gateway: number; plataforma: number; liquido: number; n: number }
+    >();
+    for (const t of extratoReal ?? []) {
+      const mes = (t.data ?? "").slice(0, 7);
+      if (!mes) continue;
+      const a = porMes.get(mes) ?? { bruto: 0, gateway: 0, plataforma: 0, liquido: 0, n: 0 };
+      a.bruto += t.valorBruto;
+      a.gateway += t.taxaGateway;
+      a.plataforma += t.taxaPlataforma;
+      a.liquido += t.valor;
+      a.n += 1;
+      porMes.set(mes, a);
+    }
+    const linhas = [...porMes.entries()]
+      .sort(([x], [y]) => x.localeCompare(y))
+      .map(([mes, a]) => [
+        mes,
+        a.n,
+        csvNum(a.bruto),
+        csvNum(a.gateway),
+        csvNum(a.plataforma),
+        csvNum(a.liquido),
+      ]);
+    baixarCsv(
+      "fechamento-mensal-revo.csv",
+      ["Mês", "Cobranças", "Bruto (R$)", "Taxa gateway (R$)", "Taxa plataforma (R$)", "Líquido (R$)"],
+      linhas
+    );
+  }
 
   // Fluxo 2 — ativar recebimento (subconta Asaas). Keyed p/ reordenar sem remount.
   const ativarEl = <AtivarRecebimento key="ativar" onStatus={handleStatusReceb} />;
@@ -161,7 +265,7 @@ export default function FinanceiroPage() {
       <MetricCard
         label="A liberar"
         value={brl(aLiberar)}
-        sub="em processamento"
+        sub={liberarSub}
         icon="clock"
       />
       <MetricCard
@@ -189,6 +293,24 @@ export default function FinanceiroPage() {
           emReal ? (
             <div className={styles.syncBar}>
               {syncMsg && <span className={styles.syncMsg}>{syncMsg}</span>}
+              <Button
+                variant="outline"
+                size="sm"
+                icon="download"
+                onClick={exportarExtrato}
+                disabled={(extratoReal ?? []).length === 0}
+              >
+                CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon="file-spreadsheet"
+                onClick={exportarFechamento}
+                disabled={(extratoReal ?? []).length === 0}
+              >
+                Fechamento
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -324,11 +446,30 @@ export default function FinanceiroPage() {
                 {(extratoReal ?? []).map((t) => {
                   const st = statusExtrato(t.status);
                   const temTaxas = t.taxaGateway > 0 || t.taxaPlataforma > 0;
+                  const podeEstornar =
+                    !!t.asaasPaymentId &&
+                    /RECEIV|CONFIRM/.test((t.status || "").toUpperCase());
                   return (
                     <ListRow
                       key={t.id}
                       title={<span className={styles.nome}>{t.alunoNome} · Mensalidade</span>}
-                      action={<span className={styles.valorEntrada}>{brl(t.valor)}</span>}
+                      action={
+                        <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                          <span className={styles.valorEntrada}>{brl(t.valor)}</span>
+                          {podeEstornar && (
+                            <KebabMenu
+                              items={[
+                                {
+                                  label: "Estornar cobrança",
+                                  icon: "arrow-back-up",
+                                  danger: true,
+                                  onClick: () => estornar(t.asaasPaymentId as string, t.alunoNome),
+                                },
+                              ]}
+                            />
+                          )}
+                        </span>
+                      }
                       meta={
                         <>
                           <span className={styles.metaRow}>

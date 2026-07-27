@@ -18,6 +18,8 @@ import {
 } from "@/components/ui";
 import { coach, anamneseTemplate } from "@/lib/data";
 import type { PerguntaAnamnese, TipoPergunta } from "@/lib/types";
+import { mascararTelefone } from "@/lib/mascaras";
+import { MinhaAssinatura } from "./MinhaAssinatura";
 import styles from "./configuracoes.module.css";
 
 const SECOES = [
@@ -43,10 +45,32 @@ const CONSELHO_OPTS = [
   { label: "CRM", value: "CRM" as const },
 ];
 
-function SaveBar() {
+function SaveBar({
+  onClick,
+  saving,
+  msg,
+}: {
+  onClick?: () => void;
+  saving?: boolean;
+  msg?: string;
+}) {
   return (
     <div className={styles.saveBar}>
-      <Button icon="check">Salvar</Button>
+      {msg && (
+        <span
+          style={{
+            fontSize: 13,
+            color: "var(--color-text-secondary)",
+            marginRight: "var(--space-3)",
+            alignSelf: "center",
+          }}
+        >
+          {msg}
+        </span>
+      )}
+      <Button icon="check" onClick={onClick} disabled={saving}>
+        {saving ? "Salvando…" : "Salvar"}
+      </Button>
     </div>
   );
 }
@@ -207,6 +231,66 @@ export default function ConfiguracoesPage() {
   // notificacoes
   const [notificacoes, setNotificacoes] = useState(coach.notificacoes);
 
+  // Config real: carregamento inicial do banco + salvamento por seção.
+  const [salvando, setSalvando] = useState<string | null>(null);
+  const [msgSecao, setMsgSecao] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    fetch("/api/configuracoes")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d?.ok) return;
+        setNomeNegocio(d.nome_negocio ?? "");
+        setBio(d.bio ?? "");
+        setEspecialidade(d.especialidade ?? "");
+        setNome(d.nome ?? "");
+        if (d.conselho_tipo === "CREF" || d.conselho_tipo === "CRN" || d.conselho_tipo === "CRM")
+          setConselhoTipo(d.conselho_tipo);
+        setRegistro(d.conselho_numero ?? "");
+        setEmail(d.email ?? "");
+        setTelefone(d.telefone ?? "");
+        setPix(d.saque_pix ?? "");
+        setBanco(d.saque_banco ?? "");
+        setAgencia(d.saque_agencia ?? "");
+        setConta(d.saque_conta ?? "");
+        setDocumento(d.documento ?? "");
+        if (d.checkout_cor) setCor(d.checkout_cor);
+        setNotificacoes({
+          novoPagamento: !!d.notif_novo_pagamento,
+          checkinRecebido: !!d.notif_checkin_recebido,
+          pagamentoAtrasado: !!d.notif_pagamento_atrasado,
+          novoAluno: !!d.notif_novo_aluno,
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  async function salvarSecao(secao: string, campos: Record<string, unknown>) {
+    setMsgSecao((m) => ({ ...m, [secao]: "" }));
+    if (!supabaseEnabled) {
+      setMsgSecao((m) => ({ ...m, [secao]: "Salvo (protótipo)." }));
+      return;
+    }
+    setSalvando(secao);
+    try {
+      const res = await fetch("/api/configuracoes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(campos),
+      });
+      const d = await res.json().catch(() => ({}));
+      setMsgSecao((m) => ({
+        ...m,
+        [secao]: res.ok && d.ok ? "Salvo ✓" : d.erro || "Falha ao salvar.",
+      }));
+    } catch {
+      setMsgSecao((m) => ({ ...m, [secao]: "Falha de conexão." }));
+    } finally {
+      setSalvando(null);
+    }
+  }
+
   function updatePergunta(id: string, patch: Partial<PerguntaAnamnese>) {
     setPerguntas((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
@@ -307,7 +391,17 @@ export default function ConfiguracoesPage() {
                   onChange={(e) => setEspecialidade(e.target.value)}
                   icon="barbell"
                 />
-                <SaveBar />
+                <SaveBar
+                  onClick={() =>
+                    salvarSecao("perfil", {
+                      nome_negocio: nomeNegocio,
+                      bio,
+                      especialidade,
+                    })
+                  }
+                  saving={salvando === "perfil"}
+                  msg={msgSecao.perfil}
+                />
               </CardBody>
             </Card>
           )}
@@ -351,12 +445,24 @@ export default function ConfiguracoesPage() {
                   Opcional — preencha quando quiser. Define no futuro o que o
                   profissional pode prescrever.
                 </Nota>
-                <SaveBar />
+                <SaveBar
+                  onClick={() =>
+                    salvarSecao("profissional", {
+                      nome,
+                      conselho_tipo: conselhoTipo,
+                      conselho_numero: registro,
+                    })
+                  }
+                  saving={salvando === "profissional"}
+                  msg={msgSecao.profissional}
+                />
               </CardBody>
             </Card>
           )}
 
           {active === "conta" && (
+            <>
+            <MinhaAssinatura />
             <Card>
               <CardHeader title="Conta" />
               <CardBody className={styles.form}>
@@ -366,13 +472,15 @@ export default function ConfiguracoesPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   icon="mail"
+                  disabled
+                  hint="O e-mail de login não é alterável por aqui."
                 />
                 <Input
                   label="Telefone"
                   type="tel"
                   inputMode="tel"
                   value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
+                  onChange={(e) => setTelefone(mascararTelefone(e.target.value))}
                   icon="phone"
                 />
                 <div>
@@ -380,9 +488,14 @@ export default function ConfiguracoesPage() {
                     Alterar senha
                   </Button>
                 </div>
-                <SaveBar />
+                <SaveBar
+                  onClick={() => salvarSecao("conta", { telefone })}
+                  saving={salvando === "conta"}
+                  msg={msgSecao.conta}
+                />
               </CardBody>
             </Card>
+            </>
           )}
 
           {active === "recebimento" && (
@@ -422,7 +535,19 @@ export default function ConfiguracoesPage() {
                   icon="id"
                 />
                 <Nota>É daqui que o Sacar do Financeiro puxa a conta.</Nota>
-                <SaveBar />
+                <SaveBar
+                  onClick={() =>
+                    salvarSecao("recebimento", {
+                      saque_pix: pix,
+                      saque_banco: banco,
+                      saque_agencia: agencia,
+                      saque_conta: conta,
+                      documento,
+                    })
+                  }
+                  saving={salvando === "recebimento"}
+                  msg={msgSecao.recebimento}
+                />
               </CardBody>
             </Card>
           )}
@@ -466,7 +591,11 @@ export default function ConfiguracoesPage() {
                 <Nota>
                   Vale para todos os planos (cada plano pode sobrescrever).
                 </Nota>
-                <SaveBar />
+                <SaveBar
+                  onClick={() => salvarSecao("checkout", { checkout_cor: cor })}
+                  saving={salvando === "checkout"}
+                  msg={msgSecao.checkout}
+                />
               </CardBody>
             </Card>
           )}
@@ -611,7 +740,18 @@ export default function ConfiguracoesPage() {
                     </div>
                   ))}
                 </div>
-                <SaveBar />
+                <SaveBar
+                  onClick={() =>
+                    salvarSecao("notificacoes", {
+                      notif_novo_pagamento: notificacoes.novoPagamento,
+                      notif_checkin_recebido: notificacoes.checkinRecebido,
+                      notif_pagamento_atrasado: notificacoes.pagamentoAtrasado,
+                      notif_novo_aluno: notificacoes.novoAluno,
+                    })
+                  }
+                  saving={salvando === "notificacoes"}
+                  msg={msgSecao.notificacoes}
+                />
               </CardBody>
             </Card>
           )}

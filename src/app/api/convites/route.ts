@@ -37,10 +37,19 @@ export async function POST(request: Request) {
 
   const { data: cons } = await supabase
     .from("consultorias")
-    .select("id, nome_negocio, nome, mensalidade_valor")
+    .select("id, nome_negocio, nome, mensalidade_valor, plano_status")
     .eq("id", prof.consultoria_id)
     .maybeSingle();
   if (!cons) return NextResponse.json({ erro: "consultoria não encontrada" }, { status: 404 });
+
+  // Plano lapsado (cancelado/inadimplente): não gera link até reativar.
+  const planoAtivo = cons.plano_status === "ativo" || cons.plano_status === "trial";
+  if (!planoAtivo) {
+    return NextResponse.json(
+      { erro: "consultoria inativa — reative seu plano para gerar links", consultoriaInativa: true },
+      { status: 402 }
+    );
+  }
 
   const valor = Number(body.valor ?? cons.mensalidade_valor ?? 0);
   if (!Number.isFinite(valor) || valor <= 0) {

@@ -22,6 +22,7 @@ import { listAlunos, stats, planoNome } from "@/lib/data";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { fetchAlunos, fetchConsultoriaResumo, fetchFinanceiro, type FinanceiroReal } from "@/lib/db";
 import { useConsultor } from "@/lib/useConsultor";
+import { AvisoPlanoConsultor } from "./AvisoPlanoConsultor";
 import type { Aluno } from "@/lib/types";
 import {
   brl,
@@ -170,6 +171,8 @@ export default function ResumoPage() {
           </Button>
         }
       />
+
+      <AvisoPlanoConsultor />
 
       <section className={styles.metrics}>
         <MetricCard

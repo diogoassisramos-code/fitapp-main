@@ -38,6 +38,8 @@ export const PUBLIC_PREFIXES = [
   "/cadastro",
   "/recuperar-senha",
   "/onboarding",
+  "/termos",
+  "/privacidade",
 ];
 
 export function isPublicPath(pathname: string): boolean {

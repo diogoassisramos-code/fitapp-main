@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { asaasEnabled } from "@/lib/asaasEnabled";
 import { createClient } from "@/utils/supabase/server";
-import { saldoSubconta, AsaasError } from "@/lib/asaas";
+import { saldoSubconta, listarPagamentosSubconta, AsaasError } from "@/lib/asaas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +43,27 @@ export async function GET() {
 
   try {
     const { balance } = await saldoSubconta(key);
-    return NextResponse.json({ ok: true, saldo: Number(balance ?? 0) });
+    // "A liberar" = pagamentos confirmados que ainda NÃO caíram no saldo (cartão
+    // libera depois, ~D+30). Cada um traz a data estimada de liberação; usamos a
+    // mais próxima como "próxima liberação".
+    let aLiberar = 0;
+    let proximaLiberacao: string | null = null;
+    try {
+      const { data } = await listarPagamentosSubconta(key, { status: "CONFIRMED", limit: 100 });
+      for (const p of data ?? []) {
+        aLiberar += Number(p.netValue ?? p.value ?? 0);
+        const d = p.estimatedCreditDate ?? null;
+        if (d && (!proximaLiberacao || d < proximaLiberacao)) proximaLiberacao = d;
+      }
+    } catch {
+      /* sem a lista, devolve só o saldo disponível */
+    }
+    return NextResponse.json({
+      ok: true,
+      saldo: Number(balance ?? 0),
+      aLiberar: Math.round(aLiberar * 100) / 100,
+      proximaLiberacao,
+    });
   } catch (e) {
     const status = e instanceof AsaasError ? 502 : 500;
     // eslint-disable-next-line no-console

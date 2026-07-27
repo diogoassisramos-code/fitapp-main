@@ -76,6 +76,32 @@ function mrrDoPlano(p: Plano): number {
   return p.preco * PERIODO_FATOR[p.periodoRecorrencia ?? "mensal"] * p.assinantesAtivos;
 }
 
+/** Copia texto com fallback (clipboard API falha fora de foco/contexto seguro). */
+async function copiarTexto(texto: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(texto);
+      return true;
+    }
+  } catch {
+    /* cai no fallback */
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = texto;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 export default function PlanosPage() {
   const router = useRouter();
   const podeReal = supabaseEnabled;
@@ -86,6 +112,7 @@ export default function PlanosPage() {
   const [editing, setEditing] = useState<QuickEdit | null>(null);
   const [salvandoQuick, setSalvandoQuick] = useState(false);
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
+  const [linkGerado, setLinkGerado] = useState<string | null>(null);
   const [excluindo, setExcluindo] = useState<Plano | null>(null);
 
   // Gating: só cria plano com recebimento ativado E anamnese decidida (criada
@@ -195,18 +222,18 @@ export default function PlanosPage() {
 
   async function copiarLink(p: Plano) {
     setErro("");
+    setLinkGerado(null);
     // Modo protótipo: usa o link estático do mock.
     if (!podeReal) {
-      try {
-        await navigator.clipboard.writeText(p.linkPagamento);
-        setCopiadoId(p.id);
-        setTimeout(() => setCopiadoId(null), 1800);
-      } catch {
-        /* ignore */
-      }
+      await copiarTexto(p.linkPagamento);
+      setCopiadoId(p.id);
+      setTimeout(() => setCopiadoId(null), 1800);
       return;
     }
     // Real: gera um convite (link de onboarding do aluno) com o preço do plano.
+    // Separa a chamada da API do clipboard — antes, um clipboard bloqueado caía
+    // no catch e aparecia como "falha ao gerar o link" (mascarava a causa).
+    let link: string;
     try {
       const res = await fetch("/api/convites", {
         method: "POST",
@@ -218,11 +245,23 @@ export default function PlanosPage() {
         setErro(data.erro || "Não foi possível gerar o link.");
         return;
       }
-      await navigator.clipboard.writeText(`${window.location.origin}/onboarding/${data.token}`);
+      link = `${window.location.origin}/onboarding/${data.token}`;
+    } catch (e) {
+      setErro(
+        "Falha de conexão ao gerar o link" +
+          (e instanceof Error && e.message ? ` (${e.message})` : "") +
+          "."
+      );
+      return;
+    }
+    // Link gerado. Tenta copiar; se o clipboard for bloqueado, mostra pra copiar
+    // manualmente (o link JÁ existe — não é erro de geração).
+    const copiou = await copiarTexto(link);
+    if (copiou) {
       setCopiadoId(p.id);
       setTimeout(() => setCopiadoId(null), 1800);
-    } catch {
-      setErro("Falha ao gerar o link de pagamento.");
+    } else {
+      setLinkGerado(link);
     }
   }
 
@@ -296,6 +335,44 @@ export default function PlanosPage() {
 
       {erro && (
         <p style={{ color: "var(--color-text-danger)", fontSize: 13, margin: 0 }}>{erro}</p>
+      )}
+
+      {linkGerado && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-3)",
+            flexWrap: "wrap",
+            background: "var(--color-background-secondary)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--border-radius-md)",
+            padding: "var(--space-3)",
+          }}
+        >
+          <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+            Link gerado — copie e envie ao aluno:
+          </span>
+          <code
+            style={{
+              flex: 1,
+              minWidth: 0,
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              wordBreak: "break-all",
+            }}
+          >
+            {linkGerado}
+          </code>
+          <Button
+            variant="outline"
+            size="sm"
+            icon="copy"
+            onClick={() => copiarTexto(linkGerado)}
+          >
+            Copiar
+          </Button>
+        </div>
       )}
 
       <Card padded={false}>

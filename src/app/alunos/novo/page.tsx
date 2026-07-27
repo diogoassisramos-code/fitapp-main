@@ -16,6 +16,7 @@ import {
   EmptyState,
   KebabMenu,
 } from "@/components/ui";
+import { GateConsultoria } from "@/components/GateConsultoria";
 import {
   getTestAlunos,
   addTestAluno,
@@ -141,6 +142,7 @@ export default function NovoAlunoPage() {
   }
 
   return (
+    <GateConsultoria>
     <div className={styles.page}>
       <PageHeader
         title="Novo aluno"
@@ -523,5 +525,6 @@ export default function NovoAlunoPage() {
       </Card>
       )}
     </div>
+    </GateConsultoria>
   );
 }

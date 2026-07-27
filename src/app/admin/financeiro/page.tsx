@@ -13,6 +13,7 @@ import {
   EmptyState,
   Modal,
   Input,
+  KebabMenu,
 } from "@/components/ui";
 import type { BadgeVariant } from "@/components/ui";
 import { adminFinanceiro, listTransacoesPlataforma } from "@/lib/admin";
@@ -25,11 +26,14 @@ import {
   fetchExtratoMaster,
   sincronizarPlataforma,
   solicitarSaque,
+  estornarPagamento,
   AdminAsaasError,
   type SaqueMaster,
   type LancamentoExtrato,
 } from "@/lib/adminAsaas";
 import { brl, dataCurta } from "@/lib/format";
+import { baixarCsv, csvNum } from "@/lib/csv";
+import { WebhookAsaas } from "./WebhookAsaas";
 import styles from "./financeiro.module.css";
 
 type Filtro = "tudo" | "assinatura" | "saida";
@@ -153,6 +157,43 @@ export default function AdminFinanceiroPage() {
     } finally {
       setSincronizando(false);
     }
+  }
+
+  async function estornarAdmin(asaasPaymentId: string, descricao: string) {
+    if (
+      !confirm(
+        `Estornar "${descricao}"? O valor volta para o pagador e o split é revertido. Esta ação não pode ser desfeita.`
+      )
+    )
+      return;
+    setMsg(null);
+    try {
+      await estornarPagamento(asaasPaymentId);
+      setMsg({ tipo: "ok", texto: "Cobrança estornada." });
+      await carregarReal();
+    } catch (e) {
+      setMsg({
+        tipo: "erro",
+        texto: e instanceof Error ? e.message : "Falha ao estornar.",
+      });
+    }
+  }
+
+  // Export contábil do extrato da plataforma (CSV).
+  function exportarExtratoAdmin() {
+    const linhas = extratoReal.map((t) => [
+      t.data ?? "",
+      t.descricao,
+      t.tipo,
+      t.metodo,
+      statusExtrato(t.status).label,
+      csvNum(t.valor),
+    ]);
+    baixarCsv(
+      `extrato-plataforma-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Data", "Descrição", "Tipo", "Método", "Status", "Receita (R$)"],
+      linhas
+    );
   }
 
   async function carregarExtratoMaster() {
@@ -337,6 +378,9 @@ export default function AdminFinanceiroPage() {
         </Card>
       )}
 
+      {/* Webhook do Asaas (registro/status) */}
+      <WebhookAsaas />
+
       {/* KPIs */}
       <section className={styles.metrics}>
         <MetricCard
@@ -446,6 +490,17 @@ export default function AdminFinanceiroPage() {
             onChange={setFiltro}
             ariaLabel="Filtrar extrato"
           />
+          {emReal && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon="download"
+              onClick={exportarExtratoAdmin}
+              disabled={extratoReal.length === 0}
+            >
+              Exportar CSV
+            </Button>
+          )}
         </div>
 
         {emReal ? (
@@ -455,11 +510,30 @@ export default function AdminFinanceiroPage() {
             <div className={styles.list}>
               {extratoReal.map((t) => {
                 const st = statusExtrato(t.status);
+                const podeEstornar =
+                  !!t.asaasPaymentId &&
+                  /RECEIV|CONFIRM/.test((t.status || "").toUpperCase());
                 return (
                   <ListRow
                     key={t.id}
                     title={<span className={styles.descricao}>{t.descricao}</span>}
-                    action={<span className={styles.valorEntrada}>{brl(t.valor)}</span>}
+                    action={
+                      <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                        <span className={styles.valorEntrada}>{brl(t.valor)}</span>
+                        {podeEstornar && (
+                          <KebabMenu
+                            items={[
+                              {
+                                label: "Estornar cobrança",
+                                icon: "arrow-back-up",
+                                danger: true,
+                                onClick: () => estornarAdmin(t.asaasPaymentId as string, t.descricao),
+                              },
+                            ]}
+                          />
+                        )}
+                      </span>
+                    }
                     meta={
                       <span className={styles.metaRow}>
                         <span className={styles.meta}>

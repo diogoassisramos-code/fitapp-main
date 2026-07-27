@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
+import { BootSplash } from "./BootSplash";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { AlunoShell } from "@/components/aluno/AlunoShell";
 import { isAuthed, isPublicPath } from "@/lib/auth";
@@ -113,10 +114,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // Enquanto a sessão não é confirmada, não renderiza conteúdo protegido
-  // (evita flash do dashboard antes do redirect pro login).
+  // Enquanto a sessão não é confirmada, mostra o splash da marca (evita flash do
+  // dashboard/branco antes do redirect pro login ou do carregamento dos dados).
   if (!ready) {
-    return null;
+    return <BootSplash />;
   }
 
   // Área administrativa da plataforma usa um shell próprio (escuro).

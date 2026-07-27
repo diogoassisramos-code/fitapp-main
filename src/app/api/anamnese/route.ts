@@ -59,7 +59,33 @@ export async function POST(request: Request) {
   const patch = body.optOut
     ? { anamnese_ativa: false, anamnese_perguntas: [] }
     : { anamnese_ativa: true, anamnese_perguntas: Array.isArray(body.perguntas) ? body.perguntas : [] };
-  const { error } = await admin.from("consultorias").update(patch).eq("id", r.consultoriaId);
-  if (error) return NextResponse.json({ erro: "não foi possível salvar" }, { status: 500 });
+  const { data, error } = await admin
+    .from("consultorias")
+    .update(patch)
+    .eq("id", r.consultoriaId)
+    .select("id");
+  if (error) {
+    // Surfacing do erro real (ex.: coluna inexistente = migração schema_anamnese.sql
+    // não rodou). Antes mascarava tudo como "não foi possível salvar".
+    // eslint-disable-next-line no-console
+    console.error("[anamnese POST] falha", error);
+    const faltaColuna = /column .*anamnese|does not exist|schema cache/i.test(
+      error.message ?? ""
+    );
+    return NextResponse.json(
+      {
+        erro: faltaColuna
+          ? "Banco sem as colunas de anamnese — rode a migração supabase/schema_anamnese.sql."
+          : error.message || "não foi possível salvar",
+      },
+      { status: 500 }
+    );
+  }
+  if (!data?.length) {
+    return NextResponse.json(
+      { erro: "consultoria não encontrada (nada foi atualizado)" },
+      { status: 404 }
+    );
+  }
   return NextResponse.json({ ok: true, ativa: patch.anamnese_ativa });
 }

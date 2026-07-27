@@ -273,6 +273,21 @@ export function criarAssinatura(
   });
 }
 
+/**
+ * Troca a forma de pagamento da assinatura (PIX ⇆ cartão). Para CREDIT_CARD
+ * reusa o cartão já tokenizado na assinatura; se não houver, o Asaas rejeita
+ * (aí o app deve pedir o cartão). `updatePendingPayments` aplica às pendentes.
+ */
+export function atualizarFormaAssinatura(
+  subscriptionId: string,
+  billingType: BillingType
+): Promise<AsaasAssinatura> {
+  return asaasJson(`/subscriptions/${subscriptionId}`, {
+    method: "PUT",
+    body: JSON.stringify({ billingType, updatePendingPayments: true }),
+  });
+}
+
 /** Cobranças (filhas) já geradas por uma assinatura. */
 export function listarCobrancasDaAssinatura(
   subscriptionId: string
@@ -291,6 +306,46 @@ export function suspenderAssinatura(
   return asaasJson(`/subscriptions/${subscriptionId}`, {
     method: "PUT",
     body: JSON.stringify({ status: "INACTIVE" }),
+  });
+}
+
+/** Reativa uma assinatura suspensa (status=ACTIVE) — espelho de suspender. */
+export function reativarAssinatura(
+  subscriptionId: string
+): Promise<AsaasAssinatura> {
+  return asaasJson(`/subscriptions/${subscriptionId}`, {
+    method: "PUT",
+    body: JSON.stringify({ status: "ACTIVE" }),
+  });
+}
+
+/** Lê a assinatura (status/valor/ciclo/próximo vencimento). */
+export function getAssinatura(subscriptionId: string): Promise<AsaasAssinatura> {
+  return asaasJson(`/subscriptions/${subscriptionId}`);
+}
+
+/**
+ * Troca o cartão de uma assinatura recorrente. O novo cartão passa a valer nas
+ * próximas cobranças; `updatePendingPayments` reprocessa as pendentes/vencidas
+ * com ele. `remoteIp` é o IP REAL do pagador (análise de risco do Asaas).
+ */
+export function atualizarCartaoAssinatura(
+  subscriptionId: string,
+  input: {
+    creditCard: CreditCard;
+    creditCardHolderInfo: CreditCardHolderInfo;
+    remoteIp?: string;
+  }
+): Promise<AsaasAssinatura> {
+  return asaasJson(`/subscriptions/${subscriptionId}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      billingType: "CREDIT_CARD",
+      creditCard: input.creditCard,
+      creditCardHolderInfo: input.creditCardHolderInfo,
+      updatePendingPayments: true,
+      ...(input.remoteIp ? { remoteIp: input.remoteIp } : {}),
+    }),
   });
 }
 
@@ -359,6 +414,33 @@ export type AsaasSaldo = { balance: number };
 /** Saldo DISPONÍVEL da subconta no Asaas (autentica com a apiKey da subconta). */
 export function saldoSubconta(apiKey: string): Promise<AsaasSaldo> {
   return asaasJson("/finance/balance", {}, apiKey);
+}
+
+/** Pagamento (visão do recebedor) com a data estimada de liberação do dinheiro. */
+export type AsaasPagamentoRecebedor = {
+  id: string;
+  value?: number;
+  netValue?: number;
+  status?: string;
+  billingType?: string;
+  /** Quando o valor cai no saldo disponível (cartão costuma ser D+30). */
+  estimatedCreditDate?: string;
+  creditDate?: string;
+};
+
+/**
+ * Pagamentos da SUBCONTA (autentica com a apiKey dela). Use status=CONFIRMED
+ * para os já confirmados mas ainda NÃO liberados (o "a liberar", típico cartão),
+ * cada um com `estimatedCreditDate` (quando o Asaas credita).
+ */
+export function listarPagamentosSubconta(
+  apiKey: string,
+  params?: { status?: string; billingType?: BillingType; limit?: number }
+): Promise<{ data: AsaasPagamentoRecebedor[] }> {
+  const qs = new URLSearchParams({ limit: String(params?.limit ?? 100) });
+  if (params?.status) qs.set("status", params.status);
+  if (params?.billingType) qs.set("billingType", params.billingType);
+  return asaasJson(`/payments?${qs.toString()}`, {}, apiKey);
 }
 
 // ── Conta MASTER (plataforma) — saldo, extrato e saques ──────────────────────
@@ -503,4 +585,17 @@ export function registrarWebhook(
     method: "POST",
     body: JSON.stringify({ enabled: true, apiVersion: 3, ...input }),
   });
+}
+
+export type AsaasWebhook = {
+  id: string;
+  name?: string;
+  url: string;
+  enabled?: boolean;
+  events?: string[];
+};
+
+/** Webhooks já cadastrados na conta (pra checar/deduplicar antes de registrar). */
+export function listarWebhooks(): Promise<{ data: AsaasWebhook[] }> {
+  return asaasJson("/webhooks");
 }

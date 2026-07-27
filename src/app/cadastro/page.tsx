@@ -11,6 +11,7 @@ import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient } from "@/utils/supabase/client";
 import { brl, FORMA_PAGAMENTO_LABEL } from "@/lib/format";
 import { cpfValido, mascararCpf } from "@/lib/cpf";
+import { mascararCartao, mascararValidade, mascararCep, mascararTelefone } from "@/lib/mascaras";
 import type { FormaPagamento } from "@/lib/types";
 import styles from "./cadastro.module.css";
 
@@ -100,6 +101,11 @@ export default function CadastroPage() {
   const [pix, setPix] = useState<{ copiaCola: string; qrCodeImage: string } | null>(null);
   const [pagando, setPagando] = useState(false);
   const [erroPagamento, setErroPagamento] = useState("");
+  // Conta já criada (signup ok): a partir daí a tela de pagamento RE-TENTA a
+  // cobrança em vez de recriar a conta.
+  const [contaCriada, setContaCriada] = useState(false);
+  // Consentimento (LGPD): aceite dos termos + contato. Obrigatório pra continuar.
+  const [aceiteTermos, setAceiteTermos] = useState(false);
 
   // Passo final — Senha (cria a conta de acesso ao painel)
   const [senha, setSenha] = useState("");
@@ -108,12 +114,26 @@ export default function CadastroPage() {
   const [criando, setCriando] = useState(false);
   const [precisaConfirmar, setPrecisaConfirmar] = useState(false);
 
+  /** Guarda o e-mail como LEAD de marketing (mesmo se abandonar o cadastro).
+   *  Fire-and-forget: nunca bloqueia o fluxo. Só marketing — não é conta. */
+  function capturarLead() {
+    if (!supabaseEnabled) return;
+    fetch("/api/lead", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, nome, cpf, telefone: celular, plano: planoId, aceite: true }),
+    }).catch(() => {});
+  }
+
   function continuarConta() {
     setErro("");
     if (!nome.trim()) return setErro("Informe seu nome.");
     if (!cpfValido(cpf)) return setErro("CPF inválido.");
     if (!/.+@.+\..+/.test(email)) return setErro("Informe um e-mail válido.");
     if (!celular.trim()) return setErro("Informe seu celular.");
+    if (!aceiteTermos)
+      return setErro("Aceite os Termos de Uso e a Política de Privacidade para continuar.");
+    capturarLead();
     setPasso("plano");
   }
 
@@ -195,6 +215,17 @@ export default function CadastroPage() {
     }
   }
 
+  /** Mensagem de falha: só sugere revisar o cartão quando o erro é do cartão. */
+  function mensagemFalhaPagamento(erro: string): string {
+    const ehCartao =
+      /cart|card|recus|declin|autoriz|cvv|validade|number|número|titular|expir|antifra|risk|bandeira/i.test(
+        erro
+      );
+    return ehCartao
+      ? `Pagamento não aprovado: ${erro} Revise os dados do cartão e tente de novo.`
+      : `Não foi possível ativar o plano: ${erro}`;
+  }
+
   async function criarConta() {
     setErroSenha("");
     if (senha.length < 8) {
@@ -225,6 +256,7 @@ export default function CadastroPage() {
           cpf: cpf.replace(/\D/g, ""),
           telefone: celular,
           plano: planoId,
+          aceite_termos: true,
         },
       },
     });
@@ -244,13 +276,51 @@ export default function CadastroPage() {
       return;
     }
     setPrecisaConfirmar(false);
+    setContaCriada(true);
+    // Marca o lead como convertido (virou conta) — marketing. Fire-and-forget.
+    fetch("/api/lead", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, nome, cpf, telefone: celular, plano: planoId, virouConta: true, aceite: true }),
+    }).catch(() => {});
     // Conta criada e logado: agora sim dispara a assinatura (pagamento já
-    // coletado no passo anterior). Vai pro pronto com o resultado.
+    // coletado no passo anterior). Se falhar (cartão recusado etc.), volta pra
+    // tela do cartão com o motivo — não finge "tudo certo".
     if (plano.preco > 0) {
       setCriando(true);
       const erroAssin = await finalizarAssinatura();
       setCriando(false);
-      setErroPagamento(erroAssin || "");
+      if (erroAssin) {
+        setErroPagamento(mensagemFalhaPagamento(erroAssin));
+        setPasso("pagamento");
+        return;
+      }
+    }
+    setErroPagamento("");
+    setPasso("pronto");
+  }
+
+  /** Reenvia o pagamento quando a conta JÁ existe (falhou na 1ª tentativa). */
+  async function retryPagamento() {
+    setErroPagamento("");
+    if (forma === "cartao") {
+      const num = numeroCartao.replace(/\s/g, "");
+      const [mm, aa] = validade.split("/");
+      if (
+        num.length < 13 || !mm || !aa || cvv.length < 3 ||
+        !nomeTitular.trim() || !cpfValido(cpfTitular) ||
+        cep.replace(/\D/g, "").length < 8 || !numeroEndereco.trim()
+      ) {
+        setErroPagamento("Confira os dados do cartão e do titular.");
+        return;
+      }
+    }
+    setCriando(true);
+    const erro = await finalizarAssinatura();
+    setCriando(false);
+    if (erro) {
+      setErroPagamento(mensagemFalhaPagamento(erro));
+      return;
     }
     setPasso("pronto");
   }
@@ -352,9 +422,10 @@ export default function CadastroPage() {
               label="Celular"
               icon="phone"
               type="tel"
+              inputMode="tel"
               placeholder="(11) 90000-0000"
               value={celular}
-              onChange={(e) => setCelular(e.target.value)}
+              onChange={(e) => setCelular(mascararTelefone(e.target.value))}
             />
           </div>
 
@@ -362,6 +433,46 @@ export default function CadastroPage() {
             <i className="ti ti-shield-check" aria-hidden /> Vamos confirmar seu
             e-mail e WhatsApp pra proteger sua conta.
           </p>
+
+          <label
+            style={{
+              display: "flex",
+              gap: "var(--space-2)",
+              alignItems: "flex-start",
+              fontSize: 13,
+              lineHeight: 1.4,
+              color: "var(--color-text-secondary)",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={aceiteTermos}
+              onChange={(e) => setAceiteTermos(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0 }}
+            />
+            <span>
+              Li e aceito os{" "}
+              <a
+                href="/termos"
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontWeight: 600, textDecoration: "underline" }}
+              >
+                Termos de Uso
+              </a>{" "}
+              e a{" "}
+              <a
+                href="/privacidade"
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontWeight: 600, textDecoration: "underline" }}
+              >
+                Política de Privacidade
+              </a>
+              , incluindo receber contato por e-mail e WhatsApp.
+            </span>
+          </label>
 
           {erro && <p className={styles.erro}>{erro}</p>}
 
@@ -469,14 +580,15 @@ export default function CadastroPage() {
                 inputMode="numeric"
                 placeholder="0000 0000 0000 0000"
                 value={numeroCartao}
-                onChange={(e) => setNumeroCartao(e.target.value)}
+                onChange={(e) => setNumeroCartao(mascararCartao(e.target.value))}
               />
               <div className={styles.grid}>
                 <Input
                   label="Validade (MM/AA)"
                   placeholder="12/30"
+                  inputMode="numeric"
                   value={validade}
-                  onChange={(e) => setValidade(e.target.value)}
+                  onChange={(e) => setValidade(mascararValidade(e.target.value))}
                 />
                 <Input
                   label="CVV"
@@ -506,19 +618,28 @@ export default function CadastroPage() {
                   inputMode="numeric"
                   placeholder="00000-000"
                   value={cep}
-                  onChange={(e) => setCep(e.target.value)}
+                  onChange={(e) => setCep(mascararCep(e.target.value))}
                 />
                 <Input
                   label="Número"
                   inputMode="numeric"
                   placeholder="100"
                   value={numeroEndereco}
-                  onChange={(e) => setNumeroEndereco(e.target.value)}
+                  onChange={(e) => setNumeroEndereco(e.target.value.replace(/\D/g, ""))}
                 />
               </div>
               {erroPagamento && <p className={styles.erro}>{erroPagamento}</p>}
-              <Button icon="arrow-right" fullWidth onClick={continuarPagamento}>
-                Continuar
+              <Button
+                icon={contaCriada ? "refresh" : "arrow-right"}
+                fullWidth
+                onClick={contaCriada ? retryPagamento : continuarPagamento}
+                disabled={criando}
+              >
+                {criando
+                  ? "Processando…"
+                  : contaCriada
+                    ? "Tentar pagamento de novo"
+                    : "Continuar"}
               </Button>
               <button
                 type="button"
@@ -535,8 +656,17 @@ export default function CadastroPage() {
                 Você vai pagar via PIX. O QR code aparece no fim, ao criar a conta.
               </div>
               {erroPagamento && <p className={styles.erro}>{erroPagamento}</p>}
-              <Button icon="arrow-right" fullWidth onClick={continuarPagamento}>
-                Continuar
+              <Button
+                icon={contaCriada ? "refresh" : "arrow-right"}
+                fullWidth
+                onClick={contaCriada ? retryPagamento : continuarPagamento}
+                disabled={criando}
+              >
+                {criando
+                  ? "Processando…"
+                  : contaCriada
+                    ? "Tentar pagamento de novo"
+                    : "Continuar"}
               </Button>
             </>
           )}
@@ -544,9 +674,9 @@ export default function CadastroPage() {
           <button
             type="button"
             className={styles.voltar}
-            onClick={() => setPasso("plano")}
+            onClick={contaCriada ? irPainel : () => setPasso("plano")}
           >
-            Voltar
+            {contaCriada ? "Ir para o painel mesmo assim" : "Voltar"}
           </button>
         </div>
       )}

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PlanoEditor } from "@/components/screens/plano-editor/PlanoEditor";
+import { GateConsultoria } from "@/components/GateConsultoria";
 import { useSetupGate } from "@/lib/useSetupGate";
 
 export default function NovoPlanoPage() {
@@ -16,5 +17,9 @@ export default function NovoPlanoPage() {
   }, [loading, setupOk, router]);
 
   if (loading || !setupOk) return null;
-  return <PlanoEditor />;
+  return (
+    <GateConsultoria>
+      <PlanoEditor />
+    </GateConsultoria>
+  );
 }

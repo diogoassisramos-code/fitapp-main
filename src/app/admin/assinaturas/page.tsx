@@ -14,11 +14,8 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { STATUS_CONSULTORIA, type StatusConsultoria } from "@/lib/admin";
-import {
-  adminFetchAssinaturas,
-  adminSetConsultoriaStatus,
-  type AdminAssinatura,
-} from "@/lib/adminDb";
+import { adminFetchAssinaturas, type AdminAssinatura } from "@/lib/adminDb";
+import { mudarAssinaturaConsultoria } from "@/lib/adminAsaas";
 import { brl } from "@/lib/format";
 import styles from "./assinaturas.module.css";
 
@@ -63,12 +60,17 @@ export default function AssinaturasPage() {
     [todas, filtro]
   );
 
-  async function mudarStatus(a: AdminAssinatura, novo: StatusConsultoria) {
+  // Cancelar/reativar ligando o Asaas de verdade (suspende/reativa a assinatura
+  // e ajusta o plano_status). Sem assinatura no Asaas (free), só muda o status.
+  async function alterarAssinatura(
+    a: AdminAssinatura,
+    acao: "cancelar" | "reativar"
+  ) {
     try {
-      await adminSetConsultoriaStatus(a.consultoriaId, novo);
+      await mudarAssinaturaConsultoria(a.consultoriaId, acao);
       carregar();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Falha ao mudar status.");
+      alert(e instanceof Error ? e.message : "Falha ao atualizar assinatura.");
     }
   }
 
@@ -112,9 +114,8 @@ export default function AssinaturasPage() {
                       items={[
                         { label: "Mudar plano", icon: "arrows-exchange", onClick: () => router.push(`/admin/consultores/${a.consultoriaId}/editar`) },
                         ativa
-                          ? { label: "Suspender", icon: "player-pause", onClick: () => mudarStatus(a, "suspenso") }
-                          : { label: "Reativar", icon: "player-play", onClick: () => mudarStatus(a, "ativo") },
-                        { label: "Cancelar", icon: "x", danger: true, separatorBefore: true, onClick: () => { if (confirm(`Cancelar a assinatura de "${a.nomeNegocio}"?`)) mudarStatus(a, "cancelado"); } },
+                          ? { label: "Cancelar assinatura", icon: "x", danger: true, separatorBefore: true, onClick: () => { if (confirm(`Cancelar a assinatura de "${a.nomeNegocio}"? A cobrança recorrente é suspensa no Asaas e a conta é mantida.`)) alterarAssinatura(a, "cancelar"); } }
+                          : { label: "Reativar assinatura", icon: "player-play", onClick: () => alterarAssinatura(a, "reativar") },
                       ]}
                     />
                   </div>

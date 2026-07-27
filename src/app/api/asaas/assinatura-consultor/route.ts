@@ -43,6 +43,40 @@ type CartaoInput = {
 //   free = Gratuito (R$0) · pro = Revo Pro (R$60) · avancado = Revo Pro Max (R$120)
 const PRECO_PLANO: Record<string, number> = { free: 0, pro: 60, avancado: 120 };
 
+/**
+ * GET — estado da assinatura SaaS do consultor logado (para o card "Minha
+ * assinatura" em /configuracoes): plano, valor, status e se há assinatura no
+ * Asaas (habilita trocar cartão / cancelar).
+ */
+export async function GET() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ erro: "não autenticado" }, { status: 401 });
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("role, consultoria_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (prof?.role !== "consultor" || !prof.consultoria_id) {
+    return NextResponse.json({ erro: "apenas consultor" }, { status: 403 });
+  }
+  const { data: cons } = await supabase
+    .from("consultorias")
+    .select("plano, plano_status, asaas_subscription_id")
+    .eq("id", prof.consultoria_id)
+    .maybeSingle();
+  const plano = cons?.plano ?? "free";
+  return NextResponse.json({
+    ok: true,
+    plano,
+    valor: PRECO_PLANO[plano] ?? 0,
+    planoStatus: cons?.plano_status ?? "ativo",
+    temAssinatura: !!cons?.asaas_subscription_id,
+  });
+}
+
 export async function POST(request: Request) {
   if (!asaasEnabled) {
     return NextResponse.json({ erro: "Asaas não configurado" }, { status: 503 });

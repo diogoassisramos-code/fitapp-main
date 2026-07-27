@@ -172,15 +172,35 @@ export async function POST(request: Request) {
       externalReference: `aluno:${alunoId}`,
     });
 
+    // Ciclo da assinatura conforme a recorrência do plano (anual → YEARLY, etc.).
+    // Sem plano/recorrência definida, mantém mensal.
+    let ciclo: "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY" = "MONTHLY";
+    if (convite.plano_id) {
+      const { data: plano } = await admin
+        .from("planos")
+        .select("periodo_recorrencia")
+        .eq("id", convite.plano_id)
+        .maybeSingle();
+      const p = (plano?.periodo_recorrencia as string) ?? "";
+      ciclo =
+        p === "anual"
+          ? "YEARLY"
+          : p === "trimestral"
+            ? "QUARTERLY"
+            : p === "semanal"
+              ? "WEEKLY"
+              : "MONTHLY";
+    }
+
     const c = body.cartao;
     const nextDueDate = new Date().toISOString().slice(0, 10);
     const assinatura = await criarAssinatura({
       customer: cliente.id,
       billingType: forma === "pix" ? "PIX" : "CREDIT_CARD",
       value: Number(convite.valor),
-      cycle: "MONTHLY",
+      cycle: ciclo,
       nextDueDate,
-      description: "Mensalidade da consultoria",
+      description: "Assinatura da consultoria",
       // O webhook usa isto para marcar alunos.status_pagamento = em_dia.
       externalReference: `mensalidade:${alunoId}`,
       split: splitDoCoach(cons.asaas_wallet_id, taxa),

@@ -128,9 +128,18 @@ async function processarPagamento(
   const liberou = evento === "PAYMENT_CONFIRMED" || evento === "PAYMENT_RECEIVED";
   const venceu = evento === "PAYMENT_OVERDUE";
   const estornou = evento === "PAYMENT_REFUNDED";
+  // Chargeback/disputa de cartão (PAYMENT_CHARGEBACK_REQUESTED / _DISPUTE /
+  // PAYMENT_AWAITING_CHARGEBACK_REVERSAL): o valor foi/será revertido → trata
+  // como não-pago (bloqueia o acesso), igual a um estorno.
+  const chargeback = evento.includes("CHARGEBACK");
 
   if (fluxo === "saas" && entidadeId) {
-    const novo = liberou ? "ativo" : venceu ? "inadimplente" : null;
+    // Estorno/chargeback de assinatura SaaS também derruba pra inadimplente.
+    const novo = liberou
+      ? "ativo"
+      : venceu || estornou || chargeback
+        ? "inadimplente"
+        : null;
     if (novo) {
       const r = await admin
         .from("consultorias")
@@ -139,7 +148,13 @@ async function processarPagamento(
       if (r.error) throw r.error;
     }
   } else if (fluxo === "mensalidade" && entidadeId) {
-    const novo = liberou ? "em_dia" : venceu ? "atrasado" : estornou ? "pendente" : null;
+    const novo = liberou
+      ? "em_dia"
+      : venceu
+        ? "atrasado"
+        : estornou || chargeback
+          ? "pendente"
+          : null;
     if (novo) {
       const r = await admin
         .from("alunos")

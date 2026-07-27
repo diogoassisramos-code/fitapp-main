@@ -74,6 +74,53 @@ export function sincronizarPlataforma(): Promise<SincronizarResultado> {
   });
 }
 
+export type WebhookInfo = { id: string; url: string; enabled: boolean; events: string[] };
+
+/** Lista os webhooks do Asaas (conta master) + se o token está configurado. */
+export function fetchWebhooks(): Promise<{
+  tokenConfigurado: boolean;
+  webhooks: WebhookInfo[];
+}> {
+  return pedir("/api/admin/asaas/webhook");
+}
+
+/** Registra o webhook do Asaas (idempotente). `url` opcional = URL pública. */
+export function registrarWebhookAsaas(url?: string): Promise<{
+  jaExistia?: boolean;
+  webhook: { id: string | null; url: string };
+  aviso?: string;
+}> {
+  return pedir("/api/admin/asaas/webhook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(url ? { url } : {}),
+  });
+}
+
+/** Estorna uma cobrança (Asaas) — admin. `valor` ausente = estorno total. */
+export function estornarPagamento(
+  asaasPaymentId: string,
+  valor?: number
+): Promise<{ status: string }> {
+  return pedir("/api/admin/asaas/estornar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ asaasPaymentId, ...(valor != null ? { valor } : {}) }),
+  });
+}
+
+/** Cancela/reativa a assinatura SaaS de uma consultoria (liga o Asaas) — admin. */
+export function mudarAssinaturaConsultoria(
+  consultoriaId: string,
+  acao: "cancelar" | "reativar"
+): Promise<{ planoStatus: string }> {
+  return pedir("/api/admin/asaas/assinatura", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ consultoriaId, acao }),
+  });
+}
+
 export type SolicitarSaqueInput = {
   valor: number;
   chavePix: string;

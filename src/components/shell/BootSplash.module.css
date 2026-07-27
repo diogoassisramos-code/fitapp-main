@@ -1,0 +1,57 @@
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  background: var(--color-background);
+}
+
+.logo {
+  width: 150px;
+  height: auto;
+  animation: revo-pulse 1.5s ease-in-out infinite;
+}
+
+.bar {
+  width: 120px;
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-border);
+  position: relative;
+}
+
+.bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 999px;
+  background: var(--color-text);
+  animation: revo-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes revo-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes revo-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
