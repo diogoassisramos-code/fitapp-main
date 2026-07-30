@@ -2,6 +2,17 @@
    Revo — Design tokens (§1)
    Tema claro. Trocar os valores aqui habilita dark mode.
    ============================================================ */
+
+/* ---- Fonte principal: Xenon Nue (títulos/display), self-hosted em /public/fonts.
+   Uma família, um @font-face por peso — o navegador escolhe pelo font-weight.
+   A secundária (Inter) é carregada via Google Fonts no layout.tsx. ---- */
+@font-face { font-family: "Xenon Nue"; src: url("/fonts/XenonNue-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Xenon Nue"; src: url("/fonts/XenonNue-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Xenon Nue"; src: url("/fonts/XenonNue-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Xenon Nue"; src: url("/fonts/XenonNue-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Xenon Nue"; src: url("/fonts/XenonNue-ExtraBold.woff2") format("woff2"); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Xenon Nue"; src: url("/fonts/XenonNue-Heavy.woff2") format("woff2"); font-weight: 900; font-style: normal; font-display: swap; }
+
 :root {
   /* ---- Revo Design System (petrol + mint, superfícies ice) ---- */
   /* Marca */
@@ -43,9 +54,10 @@
   --border-radius-lg: 16px;
   --border-radius-xl: 22px;
 
-  /* Tipografia — Hanken Grotesk (texto/display) + Space Grotesk (dados) */
-  --font-sans: "Hanken Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: "Space Grotesk", ui-monospace, monospace;
+  /* Tipografia — Xenon Nue (títulos/display) + Inter (texto/dados/rótulos) */
+  --font-display: "Xenon Nue", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
 
   /* Derivados (não-spec, suporte) — sombra fria do DS */
   --shadow-card: 0 1px 2px rgba(2, 33, 40, 0.04),
@@ -97,6 +109,16 @@ h3,
 h4,
 p {
   margin: 0;
+}
+
+/* Títulos/headings usam a fonte principal (Xenon Nue), tracking apertado.
+   O corpo herda --font-sans (Inter). */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
 }
 
 a {

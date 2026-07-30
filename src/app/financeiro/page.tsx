@@ -56,6 +56,8 @@ export default function FinanceiroPage() {
   const [real, setReal] = useState<FinanceiroReal | null>(null);
   const [sacarAberto, setSacarAberto] = useState(false);
   const [valorSaque, setValorSaque] = useState("0,00");
+  const [sacando, setSacando] = useState(false);
+  const [saqueMsg, setSaqueMsg] = useState("");
   const [periodo, setPeriodo] = useState<"6m" | "12m">("6m");
   const [filtroExtrato, setFiltroExtrato] = useState<FiltroExtrato>("todos");
 
@@ -183,8 +185,43 @@ export default function FinanceiroPage() {
     return transacoes.filter((t) => t.tipo === filtroExtrato);
   }, [transacoes, filtroExtrato]);
 
+  // Saque real: transfere o saldo da subconta do coach via PIX (rota /sacar).
+  async function sacar() {
+    setSaqueMsg("");
+    const valor = Number(valorSaque.replace(/\./g, "").replace(",", "."));
+    if (!Number.isFinite(valor) || valor <= 0) {
+      setSaqueMsg("Informe um valor válido.");
+      return;
+    }
+    if (!emReal) {
+      setSacarAberto(false);
+      return;
+    }
+    setSacando(true);
+    try {
+      const res = await fetch("/api/asaas/sacar", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ valor, confirmar: true }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.ok) {
+        setSacarAberto(false);
+        setSyncMsg("Saque solicitado.");
+        carregar();
+      } else {
+        setSaqueMsg(d.erro || "Falha ao solicitar o saque.");
+      }
+    } catch {
+      setSaqueMsg("Falha de conexão.");
+    } finally {
+      setSacando(false);
+    }
+  }
+
   const abrirSacar = () => {
     setValorSaque(saldoDisponivel.toFixed(2).replace(".", ","));
+    setSaqueMsg("");
     setSacarAberto(true);
   };
 
@@ -542,11 +579,11 @@ export default function FinanceiroPage() {
         size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setSacarAberto(false)}>
+            <Button variant="ghost" onClick={() => setSacarAberto(false)} disabled={sacando}>
               Cancelar
             </Button>
-            <Button onClick={() => setSacarAberto(false)}>
-              Confirmar saque
+            <Button icon="cash" onClick={sacar} disabled={sacando}>
+              {sacando ? "Solicitando…" : "Confirmar saque"}
             </Button>
           </>
         }
@@ -568,13 +605,19 @@ export default function FinanceiroPage() {
                 <i className="ti ti-brand-cashapp" aria-hidden />
               </span>
               <span className={styles.contaTexto}>
-                Pix: {coach.contaSaque.pix ?? "—"}
+                {emReal ? "Chave PIX cadastrada em Configurações" : `Pix: ${coach.contaSaque.pix ?? "—"}`}
               </span>
             </div>
             <span className={styles.contaNota}>
-              Conta cadastrada em Configurações.
+              {emReal
+                ? "O valor vai para a chave PIX do seu Recebimento. Operação irreversível."
+                : "Conta cadastrada em Configurações."}
             </span>
           </div>
+
+          {saqueMsg && (
+            <p style={{ margin: 0, fontSize: 13, color: "var(--color-text-danger)" }}>{saqueMsg}</p>
+          )}
         </div>
       </Modal>
     </div>

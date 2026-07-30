@@ -529,20 +529,26 @@ export type TransferenciaPixInput = {
  * exige admin e confirmação explícita.
  */
 export function criarTransferenciaPix(
-  input: TransferenciaPixInput
+  input: TransferenciaPixInput,
+  apiKey?: string
 ): Promise<AsaasTransferencia> {
-  return asaasJson("/transfers", {
-    method: "POST",
-    body: JSON.stringify({
-      operationType: "PIX",
-      value: input.value,
-      pixAddressKey: input.pixAddressKey,
-      ...(input.pixAddressKeyType
-        ? { pixAddressKeyType: input.pixAddressKeyType }
-        : {}),
-      ...(input.description ? { description: input.description } : {}),
-    }),
-  });
+  return asaasJson(
+    "/transfers",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        operationType: "PIX",
+        value: input.value,
+        pixAddressKey: input.pixAddressKey,
+        ...(input.pixAddressKeyType
+          ? { pixAddressKeyType: input.pixAddressKeyType }
+          : {}),
+        ...(input.description ? { description: input.description } : {}),
+      }),
+    },
+    // Sem apiKey → conta master (admin). Com apiKey → subconta (saque do coach).
+    apiKey
+  );
 }
 
 /**
