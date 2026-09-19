@@ -47,7 +47,6 @@ export type PlanoIncluso = {
   dieta: boolean;
   protocolos: boolean;
   checkin: boolean;
-  chat: boolean;
 };
 
 export type Plano = {

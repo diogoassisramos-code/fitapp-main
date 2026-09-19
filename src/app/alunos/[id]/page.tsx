@@ -231,14 +231,6 @@ async function fetchUltimoCheckinFromDb(
   };
 }
 
-// Bolhas de conversa mock (sem estado — visual)
-const CONVERSA = [
-  { de: "aluno", texto: "Oi Rafael! Terminei o treino de hoje, mandei bem nas pernas 💪", hora: "09:12" },
-  { de: "coach", texto: "Boa! Vi seu check-in, evolução tá ótima. Vou ajustar a carga do agachamento.", hora: "09:30" },
-  { de: "aluno", texto: "Perfeito. Uma dúvida: posso trocar o frango do almoço por tilápia?", hora: "10:04" },
-  { de: "coach", texto: "Pode sim, são equivalentes. Já deixei a substituição na sua dieta.", hora: "10:11" },
-] as const;
-
 export default async function FichaAlunoPage({
   params,
 }: {
@@ -330,11 +322,6 @@ export default async function FichaAlunoPage({
               <StatusBadge variant={status.variant}>{status.label}</StatusBadge>
             </div>
           </div>
-        </div>
-        <div className={styles.heroActions}>
-          <Button variant="outline" icon="message" href="#conversa">
-            Conversar
-          </Button>
         </div>
       </header>
 
@@ -506,42 +493,6 @@ export default async function FichaAlunoPage({
           </CardBody>
         </Card>
 
-        {/* Conversa */}
-        <Card id="conversa" className={styles.chatCard} style={{ scrollMarginTop: 80 }}>
-          <CardHeader
-            title="Conversa"
-            action={
-              <span className={styles.chatStatus}>
-                <i className="ti ti-circle-filled" aria-hidden /> Online
-              </span>
-            }
-          />
-          <CardBody className={styles.chatBody}>
-            <div className={styles.chatThread}>
-              {CONVERSA.map((m, i) => (
-                <div
-                  key={i}
-                  className={styles.bubbleRow}
-                  data-de={m.de}
-                >
-                  <div className={styles.bubble} data-de={m.de}>
-                    <span className={styles.bubbleText}>{m.texto}</span>
-                    <span className={styles.bubbleTime}>{m.hora}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className={styles.chatInput}>
-              <i className="ti ti-mood-smile" aria-hidden />
-              <span className={styles.chatInputPlaceholder}>
-                Escreva uma mensagem…
-              </span>
-              <button className={styles.chatSend} type="button" aria-label="Enviar">
-                <i className="ti ti-send" aria-hidden />
-              </button>
-            </div>
-          </CardBody>
-        </Card>
       </div>
     </div>
   );

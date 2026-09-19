@@ -35,9 +35,9 @@ values
   ('free', 'Gratuito', 'Para começar a consultoria.', 0, 5,
     '["Até 5 alunos","Treino e dieta","Check-in semanal"]'::jsonb, false, 0),
   ('pro', 'Revo Pro', 'Para consultorias em crescimento.', 60, 150,
-    '["Até 150 alunos","Protocolos extras","Link de pagamento","Vitrine de planos","Suporte prioritário"]'::jsonb, true, 1),
+    '["Até 150 alunos","Protocolos extras","Link de pagamento","Suporte prioritário"]'::jsonb, true, 1),
   ('avancado', 'Revo Pro Max', 'Operações grandes, sem limites.', 120, 0,
-    '["Alunos ilimitados","Checkout personalizado","Relatórios avançados","Gerente de conta"]'::jsonb, false, 2)
+    '["Alunos ilimitados","Checkout personalizado","Suporte prioritário"]'::jsonb, false, 2)
 on conflict (slug) do nothing;
 
 -- RLS: qualquer autenticado LÊ (cadastro/consultor precisam ver os planos); a

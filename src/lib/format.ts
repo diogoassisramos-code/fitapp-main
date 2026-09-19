@@ -144,13 +144,11 @@ export function inclusoResumo(incluso: {
   dieta: boolean;
   protocolos: boolean;
   checkin: boolean;
-  chat: boolean;
 }): string {
   const partes: string[] = [];
   if (incluso.treino) partes.push("Treino");
   if (incluso.dieta) partes.push("Dieta");
   if (incluso.protocolos) partes.push("Protocolos");
   if (incluso.checkin) partes.push("Check-in");
-  if (incluso.chat) partes.push("Chat");
   return partes.join(" · ") || "—";
 }

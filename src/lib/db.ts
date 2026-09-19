@@ -652,7 +652,6 @@ function mapPlano(r: any, assinantes = 0): Plano {
       dieta: false,
       protocolos: false,
       checkin: false,
-      chat: false,
     },
     preco: Number(r.preco ?? 0),
     periodoRecorrencia: r.periodo_recorrencia ?? undefined,

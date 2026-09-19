@@ -19,6 +19,7 @@
 // ============================================================================
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { parseRef, calcularSplitTaxa } from "@/lib/asaasWebhook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,15 +27,6 @@ export const dynamic = "force-dynamic";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
-
-/** externalReference no padrão "saas:<consultoriaId>" | "mensalidade:<alunoId>". */
-function parseRef(ref?: string): { fluxo: "saas" | "mensalidade" | null; id: string | null } {
-  if (!ref) return { fluxo: null, id: null };
-  const [tipo, id] = ref.split(":");
-  if (tipo === "saas") return { fluxo: "saas", id: id ?? null };
-  if (tipo === "mensalidade") return { fluxo: "mensalidade", id: id ?? null };
-  return { fluxo: null, id: null };
-}
 
 /** Taxa efetiva (%) da consultoria: override do coach → global → fallback 10. */
 async function resolverTaxa(admin: SupabaseAdmin, consultoriaId: string): Promise<number> {
@@ -50,26 +42,6 @@ async function resolverTaxa(admin: SupabaseAdmin, consultoriaId: string): Promis
     .eq("id", 1)
     .maybeSingle();
   return Number(cfg?.taxa_plataforma_pct ?? 10);
-}
-
-/**
- * Fatia da plataforma sobre uma cobrança do aluno. O split do Asaas repassa
- * (100 − taxa)% do LÍQUIDO (após a taxa do gateway) ao coach; a plataforma
- * retém taxa% desse mesmo líquido. Usa o `split[].totalValue` real do payload
- * quando o Asaas já calculou; senão deriva de netValue × taxa (idêntico ao que
- * configuramos na cobrança). Retorna null se não dá pra calcular ainda.
- */
-function calcularSplitTaxa(payment: any, netValue: number, taxa: number): number {
-  const round2 = (n: number) => Math.round(n * 100) / 100;
-  // Só criamos UM recebedor no split (o coach) → o restante do líquido é da
-  // plataforma. Se o payload traz o valor já calculado, usa a verdade do Asaas.
-  const itens: any[] = Array.isArray(payment?.split) ? payment.split : [];
-  const somaCoach = itens.reduce((s, it) => {
-    const v = it?.totalValue ?? it?.totalFixedValue;
-    return v != null ? s + Number(v) : s;
-  }, 0);
-  if (somaCoach > 0) return round2(Math.max(0, netValue - somaCoach));
-  return round2(netValue * (taxa / 100));
 }
 
 async function processarPagamento(

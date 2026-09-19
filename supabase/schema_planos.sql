@@ -23,7 +23,7 @@ create table if not exists public.planos (
   prazo_valor          integer,
   prazo_unidade        text check (prazo_unidade in ('horas','dias_uteis')),
   incluso              jsonb not null default
-                         '{"treino":true,"dieta":true,"protocolos":false,"checkin":true,"chat":true}'::jsonb,
+                         '{"treino":true,"dieta":true,"protocolos":false,"checkin":true}'::jsonb,
   preco                numeric(10,2) not null default 0,
   periodo_recorrencia  text check (periodo_recorrencia in ('semanal','mensal','trimestral','anual')),
   formas_pagamento     jsonb not null default '["cartao","pix"]'::jsonb,

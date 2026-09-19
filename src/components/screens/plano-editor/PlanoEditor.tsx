@@ -60,7 +60,6 @@ const INCLUSO_ITENS: { key: keyof PlanoIncluso; label: string; icon: string }[] 
   { key: "dieta", label: "Dieta", icon: "salad" },
   { key: "protocolos", label: "Protocolos extras", icon: "pill" },
   { key: "checkin", label: "Check-in semanal", icon: "camera" },
-  { key: "chat", label: "Suporte por chat", icon: "message-circle" },
 ];
 
 export function PlanoEditor({ plano }: { plano?: Plano }) {
@@ -89,7 +88,6 @@ export function PlanoEditor({ plano }: { plano?: Plano }) {
       dieta: true,
       protocolos: false,
       checkin: true,
-      chat: true,
     }
   );
 
@@ -750,25 +748,6 @@ export function PlanoEditor({ plano }: { plano?: Plano }) {
                     disabled={!link}
                   >
                     {copiado ? "Copiado" : "Copiar"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon="qrcode"
-                    disabled={!link}
-                  >
-                    Gerar QR
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon="share"
-                    disabled={!link}
-                  >
-                    Compartilhar
-                  </Button>
-                  <Button variant="ghost" size="sm" icon="ticket">
-                    Criar cupom
                   </Button>
                 </div>
               </div>

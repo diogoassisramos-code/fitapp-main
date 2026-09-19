@@ -35,6 +35,7 @@ Dashboard web do prestador (consultoria fitness). Next.js App Router. App do alu
 ## Comandos
 - `npm run dev` — dev server (porta 3000).
 - `npm run build` — build de produção (valida tipos).
+- `npm test` — testes unitários (Vitest, `src/lib/__tests__/*.test.ts`; config em `vitest.config.mts`). Cobrem CPF/CNPJ, máscaras, `format`, `splitDoCoach`, `isAdminEmail` e os helpers puros do webhook Asaas (`src/lib/asaasWebhook.ts` — `parseRef`/`calcularSplitTaxa`, extraídos da rota pra serem testáveis). Lógica nova de dinheiro/data vai em `src/lib` como função pura + teste.
 
 ## Camada de dados
 - `src/lib/types.ts` — todas as entidades do §4 (Prestador, Plano, Aluno, Treino, Dieta, CheckIn, Transacao, AnamneseTemplate, etc.). `CheckIn.fotos` é `FotoCheckin[]` (`{id,angulo,url}` — imagens enviadas pelo aluno); `Plano.checkinConfig` (`{frequencia,diasSemana[],horario}`) personaliza os dias de check-in; `Alimento` tem `custom?`/`semMacros?` para alimentos criados pelo coach com macros opcionais. `Exercicio`, `Alimento` e `Refeicao` têm `observacoes?` (orientações do coach). `Protocolo`/`ProtocoloBloco`/`ProtocoloItem` modelam a aba de protocolo (suplementos/extras); `getProtocolo(alunoId)` e `suplementoLibrary` em `data.ts`.
@@ -52,4 +53,4 @@ Dashboard web do prestador (consultoria fitness). Next.js App Router. App do alu
 
 **Nota de primitivo:** `ListRow` com `onClick` renderiza um `<div role="button">` (não `<button>`) para permitir KebabMenu/Links aninhados sem HTML inválido.
 
-Tudo é protótipo de UI: estados são efêmeros (sem backend); botões de salvar/enviar/CRUD são stubs visuais. Fora de escopo: app do aluno, vitrine pública, cupons, integrações.
+Tudo é protótipo de UI: estados são efêmeros (sem backend); botões de salvar/enviar/CRUD são stubs visuais. Fora de escopo: app do aluno, vitrine pública, cupons, integrações, **chat coach↔aluno (removido do produto em 2026-09-19 — `Plano.incluso` não tem mais `chat`)**.
