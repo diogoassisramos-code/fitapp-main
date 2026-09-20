@@ -21,6 +21,7 @@ import {
   obterPixQrCode,
   AsaasError,
 } from "@/lib/asaas";
+import { fetchPlanoSaaS } from "@/lib/planosPlataforma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,10 +39,14 @@ type CartaoInput = {
   phone?: string;
 };
 
-// Preços mensais do plano da plataforma (fonte de verdade no SERVIDOR — o valor
-// nunca vem do cliente). Mantém em sincronia com os planos de /cadastro.
-//   free = Gratuito (R$0) · pro = Revo Pro (R$60) · avancado = Revo Pro Max (R$120)
-const PRECO_PLANO: Record<string, number> = { free: 0, pro: 60, avancado: 120 };
+/**
+ * Preço mensal do plano — fonte de verdade no SERVIDOR (tabela planos_plataforma,
+ * editada em /admin/planos). O valor nunca vem do cliente. Plano desconhecido → 0.
+ */
+async function precoDoPlano(slug: string): Promise<number> {
+  const plano = await fetchPlanoSaaS(createAdminClient(), slug);
+  return plano?.preco ?? 0;
+}
 
 /**
  * GET — estado da assinatura SaaS do consultor logado (para o card "Minha
@@ -71,7 +76,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     plano,
-    valor: PRECO_PLANO[plano] ?? 0,
+    valor: await precoDoPlano(plano),
     planoStatus: cons?.plano_status ?? "ativo",
     temAssinatura: !!cons?.asaas_subscription_id,
   });
@@ -128,7 +133,7 @@ export async function POST(request: Request) {
   }
 
   const plano = cons.plano ?? "pro";
-  const valor = PRECO_PLANO[plano] ?? 0;
+  const valor = await precoDoPlano(plano);
   if (valor <= 0) {
     return NextResponse.json({ erro: "plano gratuito não gera cobrança" }, { status: 400 });
   }

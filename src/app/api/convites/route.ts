@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import { createClient } from "@/utils/supabase/server";
+import { fetchPlanoSaaS } from "@/lib/planosPlataforma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
 
   const { data: cons } = await supabase
     .from("consultorias")
-    .select("id, nome_negocio, nome, mensalidade_valor, plano_status")
+    .select("id, nome_negocio, nome, mensalidade_valor, plano, plano_status")
     .eq("id", prof.consultoria_id)
     .maybeSingle();
   if (!cons) return NextResponse.json({ erro: "consultoria não encontrada" }, { status: 404 });
@@ -49,6 +50,33 @@ export async function POST(request: Request) {
       { erro: "consultoria inativa — reative seu plano para gerar links", consultoriaInativa: true },
       { status: 402 }
     );
+  }
+
+  // Limite de alunos do plano SaaS (planos_plataforma.limite_alunos; 0 = ilimitado).
+  // Conta alunos com cobrança em andamento (exclui `novo`, que nunca pagou).
+  // Fonte única: a tabela editada em /admin/planos — mudar lá vale aqui na hora.
+  // O mesmo limite é checado de novo no checkout do aluno (/api/onboarding/pagar),
+  // então links já emitidos não furam a cota.
+  const planoSaaS = await fetchPlanoSaaS(supabase, cons.plano ?? "free");
+  const limite = planoSaaS?.limiteAlunos ?? 0;
+  if (limite > 0) {
+    const { count } = await supabase
+      .from("alunos")
+      .select("id", { count: "exact", head: true })
+      .eq("consultoria_id", cons.id)
+      .in("status_pagamento", ["em_dia", "pendente", "atrasado"]);
+    const ocupados = count ?? 0;
+    if (ocupados >= limite) {
+      return NextResponse.json(
+        {
+          erro: `Seu plano ${planoSaaS?.nome ?? ""} permite até ${limite} alunos ativos (você tem ${ocupados}). Faça upgrade para convidar mais.`,
+          limiteAtingido: true,
+          limite,
+          ocupados,
+        },
+        { status: 402 }
+      );
+    }
   }
 
   const valor = Number(body.valor ?? cons.mensalidade_valor ?? 0);

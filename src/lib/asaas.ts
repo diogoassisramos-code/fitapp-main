@@ -319,6 +319,21 @@ export function reativarAssinatura(
   });
 }
 
+/**
+ * Atualiza o VALOR de uma assinatura recorrente (mudança de preço do plano SaaS
+ * feita em /admin/planos). Só as próximas cobranças mudam — as já geradas
+ * (pendentes) ficam no valor antigo (`updatePendingPayments:false`).
+ */
+export function atualizarValorAssinatura(
+  subscriptionId: string,
+  value: number
+): Promise<AsaasAssinatura> {
+  return asaasJson(`/subscriptions/${subscriptionId}`, {
+    method: "PUT",
+    body: JSON.stringify({ value, updatePendingPayments: false }),
+  });
+}
+
 /** Lê a assinatura (status/valor/ciclo/próximo vencimento). */
 export function getAssinatura(subscriptionId: string): Promise<AsaasAssinatura> {
   return asaasJson(`/subscriptions/${subscriptionId}`);

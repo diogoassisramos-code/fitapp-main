@@ -141,3 +141,24 @@ export function solicitarSaque(
     body: JSON.stringify({ ...input, confirmar: true }),
   });
 }
+
+export type PropagarPrecoResultado = {
+  ok: true;
+  slug: string;
+  preco: number;
+  total: number;
+  atualizadas: number;
+  falhas: { consultoriaId: string; erro: string }[];
+};
+
+/**
+ * Aplica o preço salvo em /admin/planos às assinaturas ATIVAS desse plano no
+ * Asaas (PUT /subscriptions/{id} value). Só próximas cobranças mudam.
+ */
+export function propagarPrecoPlano(slug: string): Promise<PropagarPrecoResultado> {
+  return pedir("/api/admin/planos/propagar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug }),
+  });
+}

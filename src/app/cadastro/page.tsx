@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
@@ -13,55 +13,19 @@ import { brl, FORMA_PAGAMENTO_LABEL } from "@/lib/format";
 import { cpfValido, mascararCpf } from "@/lib/cpf";
 import { mascararCartao, mascararValidade, mascararCep, mascararTelefone } from "@/lib/mascaras";
 import type { FormaPagamento } from "@/lib/types";
+import {
+  PLANOS_FALLBACK,
+  fetchPlanosSaaS,
+  limiteLabel,
+  type PlanoSaaS,
+} from "@/lib/planosPlataforma";
 import styles from "./cadastro.module.css";
 
-// ── Planos da plataforma oferecidos no cadastro (1 gratuito + 2 pagos) ────────
-type PlanoId = "free" | "pro" | "avancado";
-type PlanoCadastro = {
-  id: PlanoId;
-  nome: string;
-  preco: number; // mensal
-  limite: string;
-  recursos: string[];
-  destaque?: boolean;
-};
-
-const PLANOS: PlanoCadastro[] = [
-  {
-    id: "free",
-    nome: "Gratuito",
-    preco: 0,
-    limite: "Até 10 alunos",
-    recursos: [
-      "Treino, dieta e protocolo",
-      "Recebimento de check-in",
-      "Recebimento pela plataforma (cartão recorrente do aluno)",
-    ],
-  },
-  {
-    id: "pro",
-    nome: "Revo Pro",
-    preco: 60,
-    limite: "Até 150 alunos",
-    recursos: [
-      "Tudo do Gratuito",
-      "Recebimento pela plataforma (cartão recorrente do aluno)",
-      "Suporte exclusivo com o time",
-    ],
-    destaque: true,
-  },
-  {
-    id: "avancado",
-    nome: "Revo Pro Max",
-    preco: 120,
-    limite: "Alunos ilimitados",
-    recursos: [
-      "Tudo do Revo Pro",
-      "Recebimento pela plataforma (cartão recorrente do aluno)",
-      "Suporte exclusivo 24 horas",
-    ],
-  },
-];
+// ── Planos da plataforma oferecidos no cadastro ───────────────────────────────
+// Vêm da tabela planos_plataforma (o admin edita em /admin/planos). O preço
+// cobrado é resolvido no SERVIDOR pela mesma tabela — aqui é só vitrine.
+type PlanoCadastro = PlanoSaaS;
+const PLANOS_INICIAIS: PlanoCadastro[] = PLANOS_FALLBACK;
 
 const FORMAS: FormaPagamento[] = ["pix", "cartao"];
 
@@ -86,8 +50,31 @@ export default function CadastroPage() {
   const [erro, setErro] = useState("");
 
   // Passo 2 — Plano
-  const [planoId, setPlanoId] = useState<PlanoId>("pro");
-  const plano = PLANOS.find((p) => p.id === planoId)!;
+  const [planos, setPlanos] = useState<PlanoCadastro[]>(PLANOS_INICIAIS);
+  const [planoId, setPlanoId] = useState<string>(
+    PLANOS_INICIAIS.find((p) => p.destaque)?.slug ?? PLANOS_INICIAIS[0].slug
+  );
+  const plano = planos.find((p) => p.slug === planoId) ?? planos[0];
+
+  // Carrega os planos reais (só os ativos). Se o selecionado sumiu, cai no destaque.
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    let ativo = true;
+    fetchPlanosSaaS(createClient()).then((todos) => {
+      if (!ativo) return;
+      const ativos = todos.filter((p) => p.status === "ativo");
+      if (ativos.length === 0) return;
+      setPlanos(ativos);
+      setPlanoId((atual) =>
+        ativos.some((p) => p.slug === atual)
+          ? atual
+          : ativos.find((p) => p.destaque)?.slug ?? ativos[0].slug
+      );
+    });
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   // Passo Pagamento (real, via Asaas — só plano pago, já com a conta criada)
   const [forma, setForma] = useState<FormaPagamento>("cartao");
@@ -523,13 +510,13 @@ export default function CadastroPage() {
       {passo === "plano" && (
         <div className={styles.form}>
           <div className={styles.planos}>
-            {PLANOS.map((p) => (
+            {planos.map((p) => (
               <button
                 type="button"
-                key={p.id}
+                key={p.slug}
                 className={styles.plano}
-                data-selected={planoId === p.id || undefined}
-                onClick={() => setPlanoId(p.id)}
+                data-selected={planoId === p.slug || undefined}
+                onClick={() => setPlanoId(p.slug)}
               >
                 {p.destaque && <span className={styles.planoBadge}>Popular</span>}
                 <div className={styles.planoTop}>
@@ -539,9 +526,9 @@ export default function CadastroPage() {
                     {p.preco > 0 && <span className={styles.planoMes}>/mês</span>}
                   </span>
                 </div>
-                <span className={styles.planoLimite}>{p.limite}</span>
+                <span className={styles.planoLimite}>{limiteLabel(p.limiteAlunos)}</span>
                 <ul className={styles.planoRecursos}>
-                  {p.recursos.map((r) => (
+                  {p.recursos.filter((r) => r !== limiteLabel(p.limiteAlunos)).map((r) => (
                     <li key={r}>
                       <i className="ti ti-check" aria-hidden />
                       {r}

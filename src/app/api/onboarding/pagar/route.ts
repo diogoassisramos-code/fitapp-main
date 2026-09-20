@@ -21,6 +21,7 @@ import {
   AsaasError,
 } from "@/lib/asaas";
 import { splitDoCoach } from "@/lib/plataforma";
+import { fetchPlanoSaaS } from "@/lib/planosPlataforma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,7 +108,7 @@ export async function POST(request: Request) {
   // 2) Coach: walletId (recebedor) + taxa efetiva (override → senão global).
   const { data: cons } = await admin
     .from("consultorias")
-    .select("id, asaas_wallet_id, asaas_subaccount_key, taxa_plataforma_pct")
+    .select("id, plano, asaas_wallet_id, asaas_subaccount_key, taxa_plataforma_pct")
     .eq("id", convite.consultoria_id)
     .maybeSingle();
   if (!cons?.asaas_wallet_id) {
@@ -116,6 +117,24 @@ export async function POST(request: Request) {
       { status: 409 }
     );
   }
+  // 2a) Limite de alunos do plano SaaS do coach (0 = ilimitado). Checado aqui
+  //     (e não só ao gerar o link) pra links antigos não furarem a cota.
+  const planoSaaS = await fetchPlanoSaaS(admin, cons.plano ?? "free");
+  const limiteAlunos = planoSaaS?.limiteAlunos ?? 0;
+  if (limiteAlunos > 0 && !convite.aluno_id) {
+    const { count } = await admin
+      .from("alunos")
+      .select("id", { count: "exact", head: true })
+      .eq("consultoria_id", cons.id)
+      .in("status_pagamento", ["em_dia", "pendente", "atrasado"]);
+    if ((count ?? 0) >= limiteAlunos) {
+      return NextResponse.json(
+        { erro: "O coach atingiu o limite de alunos do plano dele. Avise ele pra liberar mais vagas e tente de novo." },
+        { status: 409 }
+      );
+    }
+  }
+
   // 2b) A wallet só recebe split quando a verificação da subconta do coach está
   //     concluída no gateway (general = APPROVED). Sem isso a cobrança seria
   //     rejeitada com "wallet bloqueada" — checamos antes pra devolver uma

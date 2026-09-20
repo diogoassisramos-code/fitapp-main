@@ -11,6 +11,7 @@ import {
   Input,
   Textarea,
   Modal,
+  Toggle,
 } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { brl } from "@/lib/format";
@@ -20,6 +21,8 @@ import {
   adminDeletePlanoPlataforma,
   type PlanoPlataforma,
 } from "@/lib/adminDb";
+import { propagarPrecoPlano } from "@/lib/adminAsaas";
+import { supabaseEnabled } from "@/lib/supabaseEnabled";
 import styles from "./planos.module.css";
 
 type FormState = { slug: string; nome: string; preco: string; limite: string; descricao: string };
@@ -32,6 +35,9 @@ export default function AdminPlanosPage() {
   const [form, setForm] = useState<FormState>(FORM_VAZIO);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Ao mudar o preço: aplicar também nas assinaturas já ativas desse plano no gateway.
+  const [aplicarAssinaturas, setAplicarAssinaturas] = useState(true);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const carregar = () => adminFetchPlanosPlataforma().then(setPlanos).catch(() => setPlanos([]));
   useEffect(() => {
@@ -54,6 +60,7 @@ export default function AdminPlanosPage() {
     setEditar(p);
     setErro(null);
     setForm({ slug: p.slug, nome: p.nome, preco: String(p.preco), limite: String(p.limiteAlunos), descricao: p.descricao });
+    setAplicarAssinaturas(true);
     setModalAberto(true);
   }
 
@@ -63,13 +70,16 @@ export default function AdminPlanosPage() {
     if (!form.nome.trim()) return setErro("Informe o nome.");
     if (!slug) return setErro("Informe o identificador (slug).");
     setSalvando(true);
+    setAviso(null);
+    const precoNovo = Number(form.preco.replace(",", ".")) || 0;
+    const precoMudou = !!editar && precoNovo !== editar.preco;
     try {
       await adminSavePlanoPlataforma(
         {
           slug,
           nome: form.nome.trim(),
           descricao: form.descricao.trim(),
-          preco: Number(form.preco.replace(",", ".")) || 0,
+          preco: precoNovo,
           limiteAlunos: Number(form.limite) || 0,
           recursos: editar?.recursos ?? [],
           destaque: editar?.destaque ?? false,
@@ -78,6 +88,25 @@ export default function AdminPlanosPage() {
         },
         editar?.id
       );
+      // Preço mudou → propaga às assinaturas ativas no gateway (só próximas cobranças).
+      if (precoMudou && aplicarAssinaturas && supabaseEnabled) {
+        try {
+          const r = await propagarPrecoPlano(slug);
+          setAviso(
+            r.total === 0
+              ? "Preço salvo. Nenhuma assinatura ativa neste plano para atualizar."
+              : r.falhas.length === 0
+                ? `Preço salvo e aplicado em ${r.atualizadas} assinatura(s). Vale a partir da próxima cobrança.`
+                : `Preço salvo; ${r.atualizadas}/${r.total} assinatura(s) atualizada(s) — ${r.falhas.length} falhou(aram). Tente de novo mais tarde.`
+          );
+        } catch (e) {
+          setAviso(
+            `Preço salvo, mas não consegui aplicar nas assinaturas ativas (${e instanceof Error ? e.message : "falha"}). Novas assinaturas já usam o valor novo.`
+          );
+        }
+      } else if (precoMudou && !aplicarAssinaturas) {
+        setAviso("Preço salvo. As assinaturas ativas mantêm o valor antigo; só novas usam o novo.");
+      }
       setModalAberto(false);
       carregar();
     } catch (e) {
@@ -135,6 +164,14 @@ export default function AdminPlanosPage() {
         }
       />
 
+      {aviso && (
+        <p className={styles.aviso} role="status">
+          <i className="ti ti-info-circle" aria-hidden /> {aviso}
+          <button type="button" className={styles.avisoFechar} onClick={() => setAviso(null)} aria-label="Fechar">
+            <i className="ti ti-x" aria-hidden />
+          </button>
+        </p>
+      )}
       <div className={styles.metrics}>
         <MetricCard label="MRR dos planos" value={brl(mrr)} sub="Receita recorrente mensal" icon="currency-real" />
         <MetricCard label="Planos ativos" value={planosAtivos} sub={`${todos.length} planos no total`} icon="layout-grid" />
@@ -237,6 +274,18 @@ export default function AdminPlanosPage() {
             <Input label="Limite de alunos" type="number" hint="0 = ilimitado" placeholder="150" value={form.limite} onChange={(e) => setForm((f) => ({ ...f, limite: e.target.value }))} />
           </div>
           <Textarea label="Descrição" placeholder="Para quem é este plano?" value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} />
+          {editar && (Number(form.preco.replace(",", ".")) || 0) !== editar.preco && (
+            <label className={styles.propagar}>
+              <Toggle checked={aplicarAssinaturas} onChange={setAplicarAssinaturas} aria-label="Aplicar novo preço às assinaturas ativas" />
+              <span>
+                <strong>Aplicar o novo preço às assinaturas ativas</strong>
+                <small>
+                  {editar.assinantes} consultoria(s) neste plano. Vale a partir da próxima cobrança; cobranças já emitidas não mudam.
+                  Desligado, só novas assinaturas usam o valor novo.
+                </small>
+              </span>
+            </label>
+          )}
           {erro && <p style={{ color: "var(--color-text-danger)", fontSize: 13 }}>{erro}</p>}
         </div>
       </Modal>
