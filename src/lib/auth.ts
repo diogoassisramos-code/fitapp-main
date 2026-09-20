@@ -37,6 +37,7 @@ export const PUBLIC_PREFIXES = [
   "/login",
   "/cadastro",
   "/recuperar-senha",
+  "/redefinir-senha",
   "/onboarding",
   "/termos",
   "/privacidade",

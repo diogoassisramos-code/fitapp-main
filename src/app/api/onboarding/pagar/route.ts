@@ -17,6 +17,7 @@ import {
   criarAssinatura,
   listarCobrancasDaAssinatura,
   obterPixQrCode,
+  statusSubconta,
   AsaasError,
 } from "@/lib/asaas";
 import { splitDoCoach } from "@/lib/plataforma";
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
   // 2) Coach: walletId (recebedor) + taxa efetiva (override → senão global).
   const { data: cons } = await admin
     .from("consultorias")
-    .select("id, asaas_wallet_id, taxa_plataforma_pct")
+    .select("id, asaas_wallet_id, asaas_subaccount_key, taxa_plataforma_pct")
     .eq("id", convite.consultoria_id)
     .maybeSingle();
   if (!cons?.asaas_wallet_id) {
@@ -114,6 +115,20 @@ export async function POST(request: Request) {
       { erro: "o coach ainda não ativou os recebimentos" },
       { status: 409 }
     );
+  }
+  // 2b) A wallet só recebe split quando a verificação da subconta do coach está
+  //     concluída no gateway (general = APPROVED). Sem isso a cobrança seria
+  //     rejeitada com "wallet bloqueada" — checamos antes pra devolver uma
+  //     mensagem clara em vez do erro cru. Falha na consulta não bloqueia.
+  if (cons.asaas_subaccount_key) {
+    try {
+      const st = await statusSubconta(cons.asaas_subaccount_key);
+      if (st.general !== "APPROVED") {
+        return NextResponse.json({ erro: MSG_VERIFICACAO_PENDENTE }, { status: 409 });
+      }
+    } catch {
+      /* segue; o erro real, se houver, é traduzido no catch abaixo */
+    }
   }
   const { data: cfg } = await admin
     .from("plataforma_config")
@@ -309,9 +324,26 @@ export async function POST(request: Request) {
     const status = e instanceof AsaasError ? 502 : 500;
     // eslint-disable-next-line no-console
     console.error("[onboarding/pagar] falha", e);
-    return NextResponse.json(
-      { erro: e instanceof Error ? e.message : "falha ao processar o pagamento" },
-      { status }
-    );
+    return NextResponse.json({ erro: mensagemErroPagamento(e) }, { status });
   }
+}
+
+const MSG_VERIFICACAO_PENDENTE =
+  "O coach ainda não concluiu a verificação da conta de recebimentos. Avise ele pra finalizar e tente de novo em seguida.";
+
+/**
+ * Traduz a falha pra uma mensagem que o aluno entende — sem expor o gateway
+ * nem o JSON do erro (o detalhe completo fica no log do servidor).
+ */
+function mensagemErroPagamento(e: unknown): string {
+  if (e instanceof AsaasError) {
+    const txt = JSON.stringify(e.detalhes ?? "").toLowerCase();
+    if (/wallet|split/.test(txt)) return MSG_VERIFICACAO_PENDENTE;
+    if (/cart[aã]o|card|credit/.test(txt)) {
+      return "Pagamento não aprovado. Confira os dados do cartão ou tente outro.";
+    }
+    if (/cpf|cnpj/.test(txt)) return "CPF inválido. Confira os dados e tente de novo.";
+    return "Não foi possível processar o pagamento agora. Tente novamente em instantes.";
+  }
+  return "Não foi possível processar o pagamento agora. Tente novamente em instantes.";
 }

@@ -113,6 +113,37 @@ export default function CadastroPage() {
   const [erroSenha, setErroSenha] = useState("");
   const [criando, setCriando] = useState(false);
   const [precisaConfirmar, setPrecisaConfirmar] = useState(false);
+  // Reenvio do e-mail de confirmação (quando "Confirm email" está ligado no Supabase).
+  const [reenviando, setReenviando] = useState(false);
+  const [reenvioMsg, setReenvioMsg] = useState("");
+
+  /** Pra onde o link de confirmação do e-mail traz o consultor de volta. */
+  const emailRedirectTo = () => `${window.location.origin}/login?confirmado=1`;
+
+  async function reenviarConfirmacao() {
+    if (reenviando) return;
+    setReenviando(true);
+    setReenvioMsg("");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: emailRedirectTo() },
+      });
+      setReenvioMsg(
+        error
+          ? /rate|limit|seconds/i.test(error.message)
+            ? "Aguarde um minuto antes de reenviar."
+            : "Não foi possível reenviar agora."
+          : "E-mail reenviado. Confira também o spam."
+      );
+    } catch {
+      setReenvioMsg("Não foi possível reenviar agora.");
+    } finally {
+      setReenviando(false);
+    }
+  }
 
   /** Guarda o e-mail como LEAD de marketing (mesmo se abandonar o cadastro).
    *  Fire-and-forget: nunca bloqueia o fluxo. Só marketing — não é conta. */
@@ -250,6 +281,7 @@ export default function CadastroPage() {
       email,
       password: senha,
       options: {
+        emailRedirectTo: emailRedirectTo(),
         data: {
           role: "consultor",
           nome,
@@ -735,6 +767,11 @@ export default function CadastroPage() {
               Enviamos um link de confirmação para <strong>{email}</strong>.
               Confirme pra ativar sua conta e entrar no painel.
             </p>
+            {reenvioMsg && (
+              <p className={styles.subtitle} style={{ textAlign: "center", fontSize: 13 }}>
+                {reenvioMsg}
+              </p>
+            )}
             <Button
               variant="primary"
               iconRight="arrow-right"
@@ -742,6 +779,15 @@ export default function CadastroPage() {
               href="/login"
             >
               Ir para o login
+            </Button>
+            <Button
+              variant="ghost"
+              icon="mail-forward"
+              fullWidth
+              onClick={reenviarConfirmacao}
+              disabled={reenviando}
+            >
+              {reenviando ? "Reenviando…" : "Não chegou? Reenviar e-mail"}
             </Button>
           </div>
         ) : (

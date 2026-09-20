@@ -78,3 +78,34 @@
 .confirm .foot {
   margin: 0;
 }
+
+/* ---------- Feedback ---------- */
+.erro {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-danger);
+}
+
+.ok {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-success);
+}
+
+.footLink:disabled {
+  opacity: 0.6;
+  cursor: default;
+  text-decoration: none;
+}
+
+/* ---------- Redefinir senha ---------- */
+.aviso {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-warning);
+  color: var(--color-text-warning);
+  font-size: 13px;
+  line-height: 1.5;
+}

@@ -4,7 +4,7 @@ import { isAdminEmail } from "@/lib/adminAccess";
 
 /** Prefixos públicos (sem sessão). Espelha PUBLIC_PREFIXES de @/lib/auth, mas
  *  inline para não importar módulo client no edge runtime do proxy. */
-const PUBLIC_PREFIXES = ["/login", "/cadastro", "/recuperar-senha", "/onboarding", "/termos", "/privacidade"];
+const PUBLIC_PREFIXES = ["/login", "/cadastro", "/recuperar-senha", "/redefinir-senha", "/onboarding", "/termos", "/privacidade"];
 
 /** Supabase configurado? (protótipo sem env tem gate próprio no AppShell.) */
 const SUPABASE_CONFIGURADO =

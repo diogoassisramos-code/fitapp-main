@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
@@ -15,7 +15,49 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
+  const [aviso, setAviso] = useState("");
   const [carregando, setCarregando] = useState(false);
+
+  /** Alunos vão para a área do aluno; consultor/admin para o painel. */
+  async function irParaOApp(supabase: ReturnType<typeof createClient>) {
+    let destino = "/";
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (prof?.role === "aluno") destino = "/aluno";
+    }
+    router.push(destino);
+    router.refresh();
+  }
+
+  // Volta do link de confirmação de e-mail (cadastro com "Confirm email"
+  // ligado): o Supabase redireciona pra cá com `?code=` e o cliente troca por
+  // uma sessão ao inicializar — aí seguimos direto pro app. Também cobre quem
+  // já está logado e abriu /login. O `?confirmado=1` só mostra o aviso.
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("confirmado")) {
+      setAviso("E-mail confirmado! Entre com sua senha pra acessar o painel.");
+    }
+    if (params.get("error_description")) {
+      setErro("O link de confirmação expirou ou já foi usado. Entre com sua senha.");
+    }
+    const supabase = createClient();
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
+        irParaOApp(supabase);
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function entrar() {
     setErro("");
@@ -44,21 +86,7 @@ export default function LoginPage() {
         setErro("E-mail ou senha inválidos.");
         return;
       }
-      // Alunos vão para a área do aluno; consultor/admin para o painel.
-      let destino = "/";
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (prof?.role === "aluno") destino = "/aluno";
-      }
-      router.push(destino);
-      router.refresh();
+      await irParaOApp(supabase);
     } catch {
       // Qualquer falha (rede, exceção do SDK) mostra mensagem em vez de silêncio.
       setErro("Não foi possível entrar agora. Tente novamente em instantes.");
@@ -97,6 +125,21 @@ export default function LoginPage() {
       </div>
 
       <form className={styles.form} onSubmit={handleSubmit}>
+        {aviso && (
+          <p
+            style={{
+              margin: 0,
+              padding: "var(--space-3) var(--space-4)",
+              borderRadius: "var(--border-radius-md)",
+              background: "var(--color-background-success)",
+              color: "var(--color-text-success)",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {aviso}
+          </p>
+        )}
         <Input
           label="E-mail"
           icon="mail"
